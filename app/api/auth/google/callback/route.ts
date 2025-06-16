@@ -3,23 +3,29 @@ import { OAuth2Client } from 'google-auth-library';
 
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
 const GOOGLE_OAUTH_CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-const REDIRECT_URI = 'https://fe92-78-163-189-239.ngrok-free.app/api/auth/google/callback'; // Next.js portuna göre ayarla
+const NEXT_PUBLIC_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 const SCOPES = ['https://www.googleapis.com/auth/meetings.space.created'];
 
-const oauth2Client = new OAuth2Client(
-  GOOGLE_OAUTH_CLIENT_ID,
-  GOOGLE_OAUTH_CLIENT_SECRET,
-  REDIRECT_URI
-);
-
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code');
-
   if (!GOOGLE_OAUTH_CLIENT_ID || !GOOGLE_OAUTH_CLIENT_SECRET) {
     return NextResponse.json({ error: 'Google OAuth Client ID veya Secret ortam değişkenlerinde eksik.' }, { status: 500 });
   }
+  
+  if (!NEXT_PUBLIC_BASE_URL) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_BASE_URL ortam değişkeni tanımlanmamış.' }, { status: 500 });
+  }
+
+  const REDIRECT_URI = `${NEXT_PUBLIC_BASE_URL}/api/auth/google/callback`;
+
+  const oauth2Client = new OAuth2Client(
+    GOOGLE_OAUTH_CLIENT_ID,
+    GOOGLE_OAUTH_CLIENT_SECRET,
+    REDIRECT_URI
+  );
+
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get('code');
 
   if (code) {
     try {
@@ -60,4 +66,4 @@ export async function GET(request: Request) {
     });
     return NextResponse.redirect(authUrl);
   }
-} 
+}
