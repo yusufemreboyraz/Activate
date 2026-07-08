@@ -1,91 +1,118 @@
-# Activate - Slack User Activity Tracking Application
+# Activate
 
-Activate is a web application that tracks users' online presence (active, away, etc.) on Slack and provides detailed reports by analyzing this data. Thanks to its Slack integration, it automatically detects and saves users' Slack statuses.
+Activate is a Next.js web application that tracks Slack users' presence (`active` / `away`) over time and turns it into per-user activity reports: total active time, number of activity sessions, and a timeline of status changes for a given day.
 
-## Key Features
+It supports multiple Slack workspaces at once. Each workspace installs the Slack app via OAuth; the resulting bot token is stored in Firestore and used to poll that workspace's users.
 
-*   **Real-time Activity Tracking:** Monitors users' current activity status.
-*   **Detailed User Reports:** Shows metrics like total active time, work sessions, and number of activity changes for a specific date.
-*   **Daily Activity Timeline:** Visually presents a user's activity transitions throughout the day.
-*   **Date Selection:** Allows viewing activity data for past dates.
-*   **Slack Integration:** Automatically fetches users' Slack statuses.
-*   **Data Caching:** Improves performance with a client-side caching mechanism for frequently accessed data.
+## How it works
 
-## Technologies Used
+- A cron-triggered endpoint (`GET`/`POST /api/cron/check-presence`) reads all active workspaces from Firestore, calls the Slack Web API (`users.list`, `users.getPresence`) for each workspace's users, and diffs the new presence against the last known value.
+- Transitions between `active` and `away` open or close an "activity session" document in Firestore (`activity_sessions`), which is what lets the app compute total active time and session counts per day.
+- The current status of every user is kept in a `user_statuses` collection and is what the dashboard reads.
+- A dashboard (`app/page.tsx` and related components) renders this data as tables, cards, and an activity heatmap, with a workspace switcher backed by a Zustand store.
+- A Slack slash command handler (`POST /api/slack/webhook`) verifies the Slack request signature and implements a `/meeting` command that creates a Google Meet space (via a Google service account / OAuth refresh token) and posts the link back to the channel.
+- Sign-in to the dashboard itself uses NextAuth.js with a simple credentials provider (a single configured username/password), not Slack OAuth — Slack OAuth is only used to install the bot into a workspace.
 
-*   **Next.js:** React-based web application development framework.
-*   **TypeScript:** Static type checking for JavaScript.
-*   **Firebase (Firestore):** NoSQL database for user activity logs and other data.
-*   **Tailwind CSS:** A CSS framework for rapid UI development.
-*   **Shadcn/ui:** Reusable UI components.
-*   **NextAuth.js:** Authentication management.
-*   **GitHub Actions:** To periodically trigger cron jobs on Vercel.
+## Tech stack
 
-## Setup and Running
+- Next.js 15 (App Router) + React 19 + TypeScript
+- Firebase / Firestore (`firebase`, `firebase-admin`) as the data store
+- NextAuth.js (`next-auth` v5 beta) for dashboard authentication
+- `@slack/web-api` for Slack API calls
+- `@google-apps/meet`, `google-auth-library`, `googleapis` for the `/meeting` slash command
+- Tailwind CSS + shadcn/ui (Radix primitives) + Recharts/Tremor for the UI
+- Zustand for client-side workspace state
 
-1.  **Clone the Project:**
-    ```bash
-    git clone <project-repo-url>
-    cd Activate
-    ```
+## Project structure
 
-2.  **Install Dependencies:**
-    ```bash
-    pnpm install
-    ```
+```
+app/
+  api/auth/[...nextauth]/    NextAuth route handlers
+  api/auth/slack/callback/   Slack OAuth callback — exchanges code, stores bot token in Firestore
+  api/auth/google/callback/  Google OAuth callback (Meet integration setup)
+  api/cron/check-presence/   Polls Slack presence for all active workspaces, writes to Firestore
+  api/slack/webhook/         Slack event/slash-command endpoint (signature-verified), handles /meeting
+  api/test-presence/         Manual test endpoint for a single hardcoded Slack user ID
+  users/[userId]/            Per-user activity detail page
+  page.tsx                   Main dashboard
+components/                  Dashboard UI (sidebar, tables, cards, charts) and shadcn/ui primitives
+lib/firebase.ts              Firestore client initialization
+lib/activityUtils.ts         Activity/session calculation helpers used by the dashboard
+stores/workspaceStore.ts     Zustand store for the selected workspace
+auth.ts / auth.config.ts     NextAuth configuration (credentials provider)
+middleware.ts                Route protection, delegates to auth.ts
+app.slack.manifest.json      Slack app manifest (bot scopes: users:read, users:read.presence)
+```
 
-3.  **Set Up Environment Variables:**
-    Copy the `.env.local.example` file (if it exists) to `.env.local` and enter your Firebase project credentials, NextAuth settings, and the necessary secret keys for Slack integration.
-    Example `.env.local` content:
-    ```env
-    # Firebase (Get from Firebase Console)
-    NEXT_PUBLIC_FIREBASE_API_KEY=
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-    NEXT_PUBLIC_FIREBASE_APP_ID=
+## Environment variables
 
-    # NextAuth
-    AUTH_SECRET= # To generate: openssl rand -hex 32
-    NEXTAUTH_URL=http://localhost:3000 # For development environment
+These are the environment variables actually read by the code:
 
-    # Slack (Get from your Slack app)
-    NEXT_PUBLIC_SLACK_CLIENT_ID=
-    SLACK_CLIENT_SECRET=
-    SLACK_SIGNING_SECRET= # Optional, for event verification
-    SLACK_BOT_TOKEN= # Token starting with xoxb-...
+```env
+# Firebase (client SDK config, used by lib/firebase.ts)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 
-    # Cron Job (For triggering Vercel via GitHub Actions)
-    VERCEL_CRON_SECRET= # A secure key you define
-    ```
+# Base URL used to build OAuth redirect/callback URLs
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 
-4.  **Start the Development Server:**
-    ```bash
-    pnpm dev
-    ```
-    You can view the application in your browser at [http://localhost:3000](http://localhost:3000).
+# Dashboard login (NextAuth credentials provider)
+AUTH_USERNAME=
+AUTH_PASSWORD=
+AUTH_SECRET=            # openssl rand -hex 32
 
-## API Endpoints (Key Ones)
+# Slack app OAuth (installing the bot into a workspace)
+SLACK_CLIENT_ID=
+SLACK_CLIENT_SECRET=
 
-*   `GET /api/auth/[...nextauth]`: Authentication endpoints managed by NextAuth.js.
-*   `POST /api/slack/webhook`: Listens for events from Slack (event subscriptions, slash commands, etc.).
-*   `GET /api/cron/check-presence`: Periodically checks users' current statuses from Slack and saves them to Firestore. This endpoint is regularly triggered by GitHub Actions.
+# Slack request verification (for /api/slack/webhook)
+SLACK_SIGNING_SECRET=
 
+# Slack bot token, only used by the manual /api/test-presence endpoint
+# (the cron job instead uses per-workspace bot tokens stored in Firestore)
+SLACK_BOT_TOKEN=
 
-## Cron Jobs
+# Cron job authorization for /api/cron/check-presence (Authorization: Bearer <CRON_SECRET>)
+CRON_SECRET=
 
-*   **User Status Check (`check-presence`):**
-    *   **Purpose:** To regularly check the Slack statuses of active users and save them to the database.
-    *   **Trigger Mechanism:** A GitHub Actions workflow (`.github/workflows/trigger-vercel-cron.yml`) calls the `/api/cron/check-presence` endpoint on Vercel.
-    *   **Frequency:** Every 5 minutes.
+# Google OAuth (for the /meeting slash command, creates Google Meet spaces)
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
+```
 
-## Deploy on Vercel
+Note: what triggers `/api/cron/check-presence` on a schedule (Vercel Cron, GitHub Actions, or something else) is not part of this repository — you need to set that up yourself and send `Authorization: Bearer <CRON_SECRET>` with the request.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Slack app configuration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`app.slack.manifest.json` defines the Slack app used by this project:
+
+- Bot scopes: `users:read`, `users:read.presence`
+- User scope: `users:read`
+- Socket mode and org-wide install are disabled
+
+To connect a workspace, create/configure a Slack app with these scopes, set its OAuth redirect URL to `<NEXT_PUBLIC_BASE_URL>/api/auth/slack/callback`, and point Slack event/slash-command requests at `<NEXT_PUBLIC_BASE_URL>/api/slack/webhook`.
+
+## Setup
+
+1. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+2. Create a `.env.local` file with the variables listed above.
+3. Run the dev server:
+   ```bash
+   pnpm dev
+   ```
+   The app runs at http://localhost:3000.
+
+Other scripts: `pnpm build`, `pnpm start`, `pnpm lint`.
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+MIT. See `LICENSE`.
