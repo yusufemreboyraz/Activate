@@ -4,8 +4,7 @@ import { WebClient } from '@slack/web-api';
 import { OAuth2Client, GoogleAuth } from 'google-auth-library';
 import { SpacesServiceClient, protos } from '@google-apps/meet';
 import crypto from 'crypto';
-import { db } from '@/lib/firebase'; // Firebase db örneğinizin yolu
-import { doc, getDoc } from 'firebase/firestore';
+import { prisma } from '@/lib/prisma';
 
 // .env.local dosyasından değişkenleri al
 // const slackBotToken = process.env.SLACK_BOT_TOKEN;
@@ -134,25 +133,23 @@ export async function POST(request: Request) {
     return new Response(null, { status: 200 }); 
   }
 
-  // Firestore'dan workspace için bot_token al
+  // Veritabanından workspace için bot_token al
   let workspaceBotToken: string | null = null;
   try {
-    const workspaceDocRef = doc(db, 'slack_workspaces', teamId);
-    const workspaceDocSnap = await getDoc(workspaceDocRef);
+    const workspace = await prisma.workspace.findUnique({ where: { id: teamId } });
 
-    if (workspaceDocSnap.exists()) {
-      const workspaceData = workspaceDocSnap.data();
-      if (workspaceData && workspaceData.status === 'active' && workspaceData.bot_token) {
-        workspaceBotToken = workspaceData.bot_token as string;
+    if (workspace) {
+      if (workspace.status === 'active' && workspace.botToken) {
+        workspaceBotToken = workspace.botToken;
         console.log(`Retrieved bot token for workspace ${teamId}`);
       } else {
-        console.warn(`Workspace ${teamId} is not active, bot_token is missing, or data is malformed. Data:`, workspaceData);
+        console.warn(`Workspace ${teamId} is not active, bot_token is missing, or data is malformed. Data:`, workspace);
       }
     } else {
-      console.warn(`Workspace ${teamId} not found in Firestore.`);
+      console.warn(`Workspace ${teamId} not found in the database.`);
     }
   } catch (dbError) {
-    console.error(`Error fetching workspace ${teamId} from Firestore:`, dbError);
+    console.error(`Error fetching workspace ${teamId} from the database:`, dbError);
     if (slackResponseUrl) {
         try {
             await fetch(slackResponseUrl, {

@@ -86,9 +86,8 @@ import {
 import type { UserStatus } from "@/app/page"
 
 export const userStatusToDataTableSchema = (userStatus: UserStatus & { totalActiveToday?: string }): z.infer<typeof schema> => {
-  const lastCheckedTimestamp = userStatus.updated_at;
-  const lastCheckedString = lastCheckedTimestamp && typeof lastCheckedTimestamp.seconds === 'number'
-    ? new Date(lastCheckedTimestamp.seconds * 1000).toLocaleString()
+  const lastCheckedString = userStatus.updated_at
+    ? new Date(userStatus.updated_at).toLocaleString()
     : 'N/A';
 
   const statusString = 'N/A'; // Placeholder for "Last Changed"

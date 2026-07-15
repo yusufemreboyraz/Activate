@@ -1,18 +1,8 @@
 "use client"; // Client-side rendering için gerekli
 
 import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase'; // Firebase db importu
-import { collection, getDocs, Timestamp, query, where } from 'firebase/firestore';
 import { userStatusToDataTableSchema } from '@/components/data-table';
 import type { z } from 'zod';
-
-// lib/activityUtils.ts'den importlar
-import {
-  calculateActivityForDate,
-  formatDuration,
-  formatDateToYYYYMMDD,
-  type ActivityData
-} from '@/lib/activityUtils';
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { DataTable } from "@/components/data-table";
@@ -26,25 +16,20 @@ import {
 // Zustand store importu
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-// UserStatus için TypeScript interface'i
-// Bu arayüz, app/api/cron/check-presence/route.ts içindeki UserStatus ile uyumlu olmalı
+// UserStatus için TypeScript interface'i (API route'ların JSON yanıtıyla uyumlu)
 export interface UserStatus {
-  id: string; // Firestore document ID (örn: workspaceId_userId)
-  user_id: string; // Gerçek Slack kullanıcı ID\'si
-  workspace_id: string; 
-  name: string; // Slack user.name
+  id: string; // Slack user ID
+  user_id: string;
+  workspace_id: string;
+  name: string;
   status_text?: string;
   status_emoji?: string;
   status_expiration?: number;
   real_name?: string;
   display_name?: string;
   image_original?: string;
-  updated_at: Timestamp; // Firestore Timestamp (last_checked gibi düşünülebilir)
-  // Orijinal UserStatus'tan presence ve last_changed gibi alanlar da gerekebilir
-  // data-table'ın ne beklediğine bağlı.
-  // Şimdilik cron'daki UserStatus'a benzer tutalım.
-  presence?: 'active' | 'away' | string; // Bu alan cron job'daki UserStatus'ta yoktu, ama presence_logs'tan gelebilir
-                                      // VEYA user_statuses'a eklenebilir. Şimdilik opsiyonel.
+  updated_at: string; // ISO date string
+  presence?: 'active' | 'away' | string;
 }
 
 // data-table.tsx'deki Zod şemasından DataTable'ın beklediği tipi alacağız.
@@ -86,57 +71,16 @@ export default function HomePage() {
       // console.log(`HomePage: Fetching data for workspace ID: ${selectedWorkspaceId}`);
 
       try {
-        const statusesCollectionRef = collection(db, 'user_statuses');
-        const q = query(statusesCollectionRef, where('workspace_id', '==', selectedWorkspaceId));
-        const statusesSnapshot = await getDocs(q);
-        
-        // Firestore'dan gelen veriyi UserStatus arayüzüne map'leyelim
-        const statusesData = statusesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id, // workspaceId_userId
-            user_id: data.user_id,
-            workspace_id: data.workspace_id,
-            name: data.name,
-            status_text: data.status_text,
-            status_emoji: data.status_emoji,
-            status_expiration: data.status_expiration,
-            real_name: data.real_name,
-            display_name: data.display_name,
-            image_original: data.image_original,
-            updated_at: data.updated_at,
-            // Eğer user_statuses'ta presence alanı da varsa:
-            presence: data.presence,
-          } as UserStatus; 
-        });
-        
-        // console.log(`Fetched ${statusesData.length} user statuses for workspace ${selectedWorkspaceId}`);
+        const response = await fetch(`/api/user-statuses?workspaceId=${encodeURIComponent(selectedWorkspaceId)}`);
+        if (!response.ok) throw new Error(`Failed to fetch user statuses: ${response.status}`);
+        const statusesData: (UserStatus & { totalActiveToday: string })[] = await response.json();
+
         setOriginalUserStatuses(statusesData);
 
-        const todayString = formatDateToYYYYMMDD(new Date());
-        
-        const tableDataPromises = statusesData.map(async (status) => {
-          try {
-            const activity: ActivityData = await calculateActivityForDate(db, status.user_id, todayString, selectedWorkspaceId);
-            const activeTodayFormatted = formatDuration(activity.totalActiveMs);
-            
-            // userStatusToDataTableSchema'ya UserStatus tipinde veri gönderiyoruz
-            const baseMappedData = userStatusToDataTableSchema(status); 
-            return { 
-              ...baseMappedData, 
-              totalActiveToday: activeTodayFormatted 
-            };
-          } catch (userActivityError) {
-            console.error(`Error fetching activity for user ${status.user_id} in workspace ${selectedWorkspaceId}:`, userActivityError);
-          const baseMappedData = userStatusToDataTableSchema(status);
-          return { 
-            ...baseMappedData, 
-              totalActiveToday: "Error"
-          };
-          }
-        });
-
-        const resolvedTableData = await Promise.all(tableDataPromises);
+        const resolvedTableData = statusesData.map((status) => ({
+          ...userStatusToDataTableSchema(status),
+          totalActiveToday: status.totalActiveToday,
+        }));
         setMappedDataForTable(resolvedTableData);
 
       } catch (err) {

@@ -1,1 +1,1 @@
-export { auth as middleware } from '@/auth'; // auth.ts'den auth fonksiyonunu middleware olarak export ediyoruz 
+export { auth as middleware } from '@/auth'; // auth.ts'den auth fonksiyonunu middleware olarak export ediyoruz

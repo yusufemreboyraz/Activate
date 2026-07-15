@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase'; // Firebase db importunuzun doğru olduğundan emin olun
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { prisma } from '@/lib/prisma';
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET;
@@ -70,27 +69,34 @@ export async function GET(request: NextRequest) {
     // console.log('Received bot token:', botToken); // Token'ı loglamak güvenlik riski olabilir, dikkatli olun.
     // console.log('Full Slack auth data:', data);
 
-    const workspaceDocRef = doc(db, 'slack_workspaces', workspaceId);
+    await prisma.workspace.upsert({
+      where: { id: workspaceId },
+      create: {
+        id: workspaceId,
+        name: workspaceName,
+        botToken: botToken,
+        appId: data.app_id,
+        botUserId: data.bot_user_id,
+        scopes: data.scope,
+        status: 'active',
+      },
+      update: {
+        name: workspaceName,
+        botToken: botToken,
+        appId: data.app_id,
+        botUserId: data.bot_user_id,
+        scopes: data.scope,
+        status: 'active',
+      },
+    });
 
-    await setDoc(workspaceDocRef, {
-      workspace_id: workspaceId,
-      workspace_name: workspaceName,
-      bot_token: botToken,
-      // Gelen yanıttan bot_user_id ve app_id gibi diğer faydalı bilgileri de saklayabilirsiniz.
-      app_id: data.app_id, // Örnek
-      bot_user_id: data.bot_user_id, // Örnek, eğer varsa
-      scopes: data.scope, // Verilen izinler
-      installation_date: serverTimestamp(),
-      status: 'active',
-    }, { merge: true }); // merge:true eğer belge varsa üzerine yazar, yoksa oluşturur.
-
-    console.log(`Workspace ${workspaceName} (${workspaceId}) information saved to Firestore.`);
+    console.log(`Workspace ${workspaceName} (${workspaceId}) information saved to the database.`);
 
     // Kullanıcıyı başarılı kurulum sayfasına veya uygulamanın ana paneline yönlendir
     return NextResponse.redirect(`${NEXT_PUBLIC_BASE_URL}/installation-success?workspace=${workspaceName}`);
 
   } catch (err: unknown) {
-    console.error('Error during Slack OAuth token exchange or Firestore operation:', err);
+    console.error('Error during Slack OAuth token exchange or database operation:', err);
     let errorMessage = 'oauth_exception';
     if (err instanceof Error) {
         errorMessage = err.message;

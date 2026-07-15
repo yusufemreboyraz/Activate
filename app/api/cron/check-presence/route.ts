@@ -1,18 +1,13 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/lib/firebase'; // Firebase db importu
-import { collection, doc, getDoc, getDocs, setDoc, Timestamp, query, where, updateDoc, addDoc } from 'firebase/firestore';
-
-// const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN; // Artık kullanılmayacak, workspace'e özel token kullanılacak
-const USER_STATUS_COLLECTION = 'user_statuses';
-const SLACK_WORKSPACES_COLLECTION = 'slack_workspaces';
-const ACTIVITY_SESSIONS_COLLECTION = 'activity_sessions'; // Yeni koleksiyon
+import { prisma } from '@/lib/prisma';
+import { determineSessionAction } from '@/lib/presenceSession';
 
 interface SlackUser {
   id: string;
-  name: string; 
+  name: string;
   is_bot: boolean;
   deleted: boolean;
-  team_id?: string; // Kullanıcının hangi workspace'e ait olduğunu belirlemek için
+  team_id?: string;
   profile?: {
     real_name?: string;
     display_name?: string;
@@ -35,54 +30,25 @@ interface SlackUsersListResponse {
   provided?: string;
 }
 
-interface UserStatus {
-  user_id: string;
-  workspace_id: string;
+interface ActiveWorkspace {
+  id: string;
   name: string;
-  presence?: string;
-  last_presence?: string; // Önceki durumu takip etmek için
-  active_session_id?: string | null; // Aktif oturumun ID'si
-  status_text: string;
-  status_emoji: string;
-  status_expiration: number;
-  real_name: string;
-  display_name: string;
-  image_original: string;
-  updated_at: Timestamp;
+  botToken: string;
 }
 
-interface ActivitySession {
-  user_id: string;
-  workspace_id: string;
-  start_time: Timestamp;
-  end_time: Timestamp | null;
-  last_seen: Timestamp; // Oturum devam ederken son görülme zamanı
-}
-
-interface SlackWorkspace {
-  workspace_id: string;
-  workspace_name: string;
-  bot_token: string;
-  status: string;
-  // Diğer potansiyel alanlar...
-}
-
-async function getActiveWorkspaces(): Promise<SlackWorkspace[]> {
-  const workspaces: SlackWorkspace[] = [];
+async function getActiveWorkspaces(): Promise<ActiveWorkspace[]> {
   try {
-    const q = query(collection(db, SLACK_WORKSPACES_COLLECTION), where("status", "==", "active"));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-      workspaces.push(doc.data() as SlackWorkspace);
+    const workspaces = await prisma.workspace.findMany({
+      where: { status: 'active' },
+      select: { id: true, name: true, botToken: true },
     });
     console.log(`Found ${workspaces.length} active Slack workspaces.`);
     return workspaces;
   } catch (error) {
-    console.error("Error fetching active Slack workspaces:", error);
-    return []; // Hata durumunda boş array dön
+    console.error('Error fetching active Slack workspaces:', error);
+    return [];
   }
 }
-
 
 async function getAllUsers(botToken: string): Promise<SlackUser[]> {
   if (!botToken) throw new Error('botToken is not provided to getAllUsers');
@@ -94,22 +60,21 @@ async function getAllUsers(botToken: string): Promise<SlackUser[]> {
       const response: Response = await fetch(
         `https://slack.com/api/users.list?limit=200${cursor ? `&cursor=${cursor}` : ''}`,
         {
-          method: 'GET', // Explicitly set method for clarity
+          method: 'GET',
           headers: { Authorization: `Bearer ${botToken}` },
         }
       );
       const data: SlackUsersListResponse = await response.json();
       if (!data.ok) {
-        // Token'ın hangi workspace'e ait olduğunu loglamak faydalı olabilir (ama token'ı direkt loglama)
-        console.error(`Slack API Error (users.list): ${data.error} - Needed: ${data.needed}, Provided: ${data.provided}. This might indicate an issue with the token or its scopes.`);
+        console.error(`Slack API Error (users.list): ${data.error} - Needed: ${data.needed}, Provided: ${data.provided}.`);
         throw new Error(`Slack API Error (users.list): ${data.error}`);
       }
-      
+
       const activeUsers = data.members
         .filter((user: SlackUser) => !user.is_bot && !user.deleted)
         .map((user: SlackUser) => {
           const resolvedName = user.profile?.real_name || user.profile?.display_name || user.name;
-          return { ...user, name: resolvedName }; 
+          return { ...user, name: resolvedName };
         });
 
       users = users.concat(activeUsers);
@@ -126,13 +91,10 @@ async function getAllUsers(botToken: string): Promise<SlackUser[]> {
 async function getUserPresence(userId: string, botToken: string): Promise<string | null> {
   if (!botToken) throw new Error('botToken is not provided to getUserPresence');
   try {
-    const response = await fetch(
-      `https://slack.com/api/users.getPresence?user=${userId}`,
-      {
-        method: 'GET', // Explicitly set method
-        headers: { Authorization: `Bearer ${botToken}` },
-      }
-    );
+    const response = await fetch(`https://slack.com/api/users.getPresence?user=${userId}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${botToken}` },
+    });
     const data = await response.json();
     if (!data.ok) {
       console.error(`Slack API Error (users.getPresence for ${userId}): ${data.error} - Needed: ${data.needed}, Provided: ${data.provided}`);
@@ -145,111 +107,123 @@ async function getUserPresence(userId: string, botToken: string): Promise<string
   }
 }
 
-async function processWorkspace(workspace: SlackWorkspace) {
-  const { workspace_id, workspace_name, bot_token } = workspace;
+async function processWorkspace(workspace: ActiveWorkspace) {
+  const { id: workspaceId, name: workspaceName, botToken } = workspace;
 
-  console.log(`[${workspace_id}] Processing workspace: ${workspace_name}`);
+  console.log(`[${workspaceId}] Processing workspace: ${workspaceName}`);
 
-  if (!bot_token) {
-    console.error(`[${workspace_id}] Bot token is missing for workspace ${workspace_name}. Skipping.`);
+  if (!botToken) {
+    console.error(`[${workspaceId}] Bot token is missing for workspace ${workspaceName}. Skipping.`);
     return;
   }
-  
+
   try {
-    const users = await getAllUsers(bot_token);
+    const users = await getAllUsers(botToken);
     if (!users || users.length === 0) {
-      console.log(`[${workspace_id}] No users found for workspace ${workspace_name}.`);
+      console.log(`[${workspaceId}] No users found for workspace ${workspaceName}.`);
       return;
     }
-    console.log(`[${workspace_id}] Fetched ${users.length} users.`);
+    console.log(`[${workspaceId}] Fetched ${users.length} users.`);
 
     for (const user of users) {
       if (!user.id || user.is_bot || user.deleted) {
         continue;
       }
-      
-      const newPresence = await getUserPresence(user.id, bot_token);
+
+      const newPresence = await getUserPresence(user.id, botToken);
       if (newPresence === null) {
-        console.log(`[${workspace_id}] Could not get presence for user ${user.id} (${user.name}). Skipping.`);
+        console.log(`[${workspaceId}] Could not get presence for user ${user.id} (${user.name}). Skipping.`);
         continue;
       }
-      
-      const userStatusRef = doc(db, USER_STATUS_COLLECTION, user.id);
-      const userStatusSnap = await getDoc(userStatusRef);
-      const lastStatus = userStatusSnap.exists() ? userStatusSnap.data() as UserStatus : null;
+
+      const lastStatus = await prisma.userStatus.findUnique({ where: { userId: user.id } });
       const lastPresence = lastStatus?.presence || 'away';
+      const now = new Date();
 
-      const now = Timestamp.now();
-      
-      // Update general user info regardless of presence change
-      const statusData: Partial<UserStatus> = {
-        user_id: user.id,
-        workspace_id: workspace_id,
-        name: user.name || '',
-        presence: newPresence,
-        status_text: user.profile?.status_text || '',
-        status_emoji: user.profile?.status_emoji || '',
-        status_expiration: user.profile?.status_expiration || 0,
-        real_name: user.profile?.real_name || '',
-        display_name: user.profile?.display_name || '',
-        image_original: user.profile?.image_original || user.profile?.image_512 || '',
-        updated_at: now,
-      };
+      const action = determineSessionAction({
+        newPresence,
+        lastPresence,
+        activeSessionId: lastStatus?.activeSessionId,
+      });
 
-      if (newPresence === 'active' && lastPresence !== 'active') {
-        // Durum 'away' -> 'active': Yeni oturum başlat
-        console.log(`[${workspace_id}] User ${user.id} changed status to 'active'. Starting new session.`);
-        const sessionData: ActivitySession = {
-          user_id: user.id,
-          workspace_id: workspace_id,
-          start_time: now, // Oturum başlangıcı anlık zaman
-          end_time: null,
-          last_seen: now,
-        };
-        const sessionRef = await addDoc(collection(db, ACTIVITY_SESSIONS_COLLECTION), sessionData);
-        statusData.active_session_id = sessionRef.id;
+      let activeSessionId: string | null = lastStatus?.activeSessionId ?? null;
 
-      } else if (newPresence === 'active' && lastPresence === 'active') {
-        // Durum 'active' -> 'active': Mevcut oturumu güncelle (last_seen)
-        console.log(`[${workspace_id}] User ${user.id} is still 'active'. Updating last_seen.`);
-        if (lastStatus?.active_session_id) {
-          const sessionRef = doc(db, ACTIVITY_SESSIONS_COLLECTION, lastStatus.active_session_id);
-          await updateDoc(sessionRef, { last_seen: now });
-        } else {
-            // Edge case: user_status'da session ID yok ama kullanıcı aktif. Yeni oturum başlat.
-            console.warn(`[${workspace_id}] User ${user.id} is 'active' but has no active_session_id. Starting a new session.`);
-            const sessionData: ActivitySession = {
-                user_id: user.id,
-                workspace_id: workspace_id,
-                start_time: now,
-                end_time: null,
-                last_seen: now,
-            };
-            const sessionRef = await addDoc(collection(db, ACTIVITY_SESSIONS_COLLECTION), sessionData);
-            statusData.active_session_id = sessionRef.id;
-        }
-
-      } else if (newPresence !== 'active' && lastPresence === 'active') {
-        // Durum 'active' -> 'away': Mevcut oturumu sonlandır
-        console.log(`[${workspace_id}] User ${user.id} changed status to 'away'. Ending session.`);
-        if (lastStatus?.active_session_id) {
-          const sessionRef = doc(db, ACTIVITY_SESSIONS_COLLECTION, lastStatus.active_session_id);
-          await updateDoc(sessionRef, { end_time: now, last_seen: now });
-        }
-        statusData.active_session_id = null;
+      if (action.type === 'start') {
+        console.log(`[${workspaceId}] User ${user.id} changed status to 'active'. Starting new session.`);
+        const session = await prisma.activitySession.create({
+          data: { userId: user.id, workspaceId, startTime: now, endTime: null, lastSeen: now },
+        });
+        activeSessionId = session.id;
+      } else if (action.type === 'continue') {
+        console.log(`[${workspaceId}] User ${user.id} is still 'active'. Updating last_seen.`);
+        await prisma.activitySession.update({
+          where: { id: action.sessionId },
+          data: { lastSeen: now },
+        });
+      } else if (action.type === 'end') {
+        console.log(`[${workspaceId}] User ${user.id} changed status to 'away'. Ending session.`);
+        await prisma.activitySession.update({
+          where: { id: action.sessionId },
+          data: { endTime: now, lastSeen: now },
+        });
+        activeSessionId = null;
       }
-      
-      // Update user status in all cases
-      await setDoc(userStatusRef, statusData, { merge: true });
+
+      await prisma.userStatus.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          workspaceId,
+          name: user.name || '',
+          presence: newPresence,
+          lastPresence,
+          activeSessionId,
+          statusText: user.profile?.status_text || '',
+          statusEmoji: user.profile?.status_emoji || '',
+          statusExpiration: user.profile?.status_expiration || 0,
+          realName: user.profile?.real_name || '',
+          displayName: user.profile?.display_name || '',
+          imageOriginal: user.profile?.image_original || user.profile?.image_512 || '',
+          updatedAt: now,
+        },
+        update: {
+          workspaceId,
+          name: user.name || '',
+          presence: newPresence,
+          lastPresence,
+          activeSessionId,
+          statusText: user.profile?.status_text || '',
+          statusEmoji: user.profile?.status_emoji || '',
+          statusExpiration: user.profile?.status_expiration || 0,
+          realName: user.profile?.real_name || '',
+          displayName: user.profile?.display_name || '',
+          imageOriginal: user.profile?.image_original || user.profile?.image_512 || '',
+          updatedAt: now,
+        },
+      });
     }
-    console.log(`[${workspace_id}] Finished presence check for workspace: ${workspace_name}`);
+    console.log(`[${workspaceId}] Finished presence check for workspace: ${workspaceName}`);
   } catch (error) {
-    console.error(`[${workspace_id}] Error processing workspace ${workspace_name}:`, error);
+    console.error(`[${workspaceId}] Error processing workspace ${workspaceName}:`, error);
   }
 }
 
+async function runCron() {
+  const activeWorkspaces = await getActiveWorkspaces();
+  if (!activeWorkspaces || activeWorkspaces.length === 0) {
+    console.log('No active workspaces found. Cron job ending.');
+    return NextResponse.json({ message: 'No active workspaces found.' });
+  }
 
-export async function GET(request: NextRequest) {
+  for (const workspace of activeWorkspaces) {
+    await processWorkspace(workspace);
+  }
+
+  console.log('Cron job finished successfully for all workspaces.');
+  return NextResponse.json({ message: 'Presence check completed for all workspaces.' });
+}
+
+function checkAuth(request: NextRequest): NextResponse | null {
   const authHeader = request.headers.get('authorization');
   const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
@@ -263,20 +237,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  return null;
+}
+
+export async function GET(request: NextRequest) {
+  const authError = checkAuth(request);
+  if (authError) return authError;
+
   console.log('Cron job started (GET): Checking user presences for all active workspaces...');
   try {
-    const activeWorkspaces = await getActiveWorkspaces();
-    if (!activeWorkspaces || activeWorkspaces.length === 0) {
-      console.log('No active workspaces found. Cron job ending.');
-      return NextResponse.json({ message: 'No active workspaces found.' });
-    }
-
-    for (const workspace of activeWorkspaces) {
-      await processWorkspace(workspace);
-    }
-
-    console.log('Cron job finished successfully for all workspaces.');
-    return NextResponse.json({ message: 'Presence check completed for all workspaces.' });
+    return await runCron();
   } catch (error) {
     console.error('Error in cron job execution:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -284,34 +254,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST handler da benzer şekilde güncellenmeli eğer kullanılıyorsa.
-// Şimdilik sadece GET'i güncelledik.
 export async function POST(request: NextRequest) {
-  // Güvenlik kontrolü GET ile aynı
-  const authHeader = request.headers.get('authorization');
-  const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-  if (!process.env.CRON_SECRET || authHeader !== expectedToken) {
-    console.warn('Unauthorized cron job POST access attempt.');
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  
+  const authError = checkAuth(request);
+  if (authError) return authError;
+
   console.log('Cron job started (POST): Checking user presences for all active workspaces...');
   try {
-    const activeWorkspaces = await getActiveWorkspaces();
-    if (!activeWorkspaces || activeWorkspaces.length === 0) {
-      console.log('No active workspaces found (POST). Cron job ending.');
-      return NextResponse.json({ message: 'No active workspaces found.' });
-    }
-
-    for (const workspace of activeWorkspaces) {
-      await processWorkspace(workspace);
-        }
-
-    console.log('Cron job finished successfully for all workspaces (POST).');
-    return NextResponse.json({ message: 'Presence check completed for all workspaces.' });
+    return await runCron();
   } catch (error) {
     console.error('Error in cron job execution (POST):', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: 'Cron job failed (POST)', details: errorMessage }, { status: 500 });
   }
-} 
+}
