@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -13,11 +11,10 @@ import ActivityHeatmap, { type HeatmapData } from "@/components/ui/ActivityHeatm
 
 // lib/activityUtils.ts'den import edilecekler
 import {
-  formatDuration, 
-  formatDateToYYYYMMDD, 
-  calculateActivityForDate, 
-  type WorkSession, 
-  type ActivityData 
+  formatDuration,
+  formatDateToYYYYMMDD,
+  type WorkSession,
+  type ActivityData
 } from '@/lib/activityUtils';
 
 // Zustand store importu
@@ -34,7 +31,7 @@ interface UserDetails {
   real_name: string;
   display_name: string;
   image_original: string;
-  updated_at: Timestamp;
+  updated_at: string;
 }
 
 export default function UserDetailPage() {
@@ -81,10 +78,9 @@ export default function UserDetailPage() {
       setError(null);
       console.log(`UserDetailPage: Fetching user data for slackUserId: ${slackUserIdFromParams} in workspace: ${selectedWorkspaceIdFromStore}`);
       try {
-        const userDocRef = doc(db, 'user_statuses', slackUserIdFromParams);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data() as UserDetails;
+        const response = await fetch(`/api/user-statuses/${encodeURIComponent(slackUserIdFromParams)}`);
+        if (response.ok) {
+          const userData: UserDetails = await response.json();
           if (userData.workspace_id && userData.workspace_id !== selectedWorkspaceIdFromStore) {
             console.warn(`UserDetailPage: Fetched user ${slackUserIdFromParams} belongs to workspace ${userData.workspace_id}, but current selected workspace is ${selectedWorkspaceIdFromStore}.`);
           }
@@ -119,7 +115,14 @@ export default function UserDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const activityData: ActivityData = await calculateActivityForDate(db, slackUserIdFromParams, selectedDate, selectedWorkspaceIdFromStore);
+        const params = new URLSearchParams({
+          userId: slackUserIdFromParams,
+          workspaceId: selectedWorkspaceIdFromStore,
+          date: selectedDate,
+        });
+        const response = await fetch(`/api/activity?${params.toString()}`);
+        if (!response.ok) throw new Error(`Failed to fetch activity: ${response.status}`);
+        const activityData: ActivityData = await response.json();
         console.log("UserDetailPage: Activity data fetched:", activityData);
         setWorkSessions(activityData.workSessions);
         setTotalActiveTime(formatDuration(activityData.totalActiveMs));
@@ -146,34 +149,16 @@ export default function UserDetailPage() {
     console.log(`UserDetailPage: Fetching heatmap data for user: ${slackUserIdFromParams}, workspace: ${selectedWorkspaceIdFromStore}, year: ${HEATMAP_TARGET_YEAR}`);
     const fetchHeatmapData = async () => {
       setIsHeatmapLoading(true);
-      const yearStartDate = new Date(HEATMAP_TARGET_YEAR, 0, 1);
-      const yearEndDate = new Date(HEATMAP_TARGET_YEAR, 11, 31);
-      const promises: Promise<HeatmapData | null>[] = [];
-      let currentDateLoop = new Date(yearStartDate);
-
-      while (currentDateLoop <= yearEndDate) {
-        const dateString = formatDateToYYYYMMDD(currentDateLoop);
-        promises.push(
-          calculateActivityForDate(db, slackUserIdFromParams, dateString, selectedWorkspaceIdFromStore)
-            .then(activity => ({
-              date: dateString,
-              totalActiveMs: activity.totalActiveMs,
-              count: activity.totalActiveMs > 0 ? (activity.totalActiveMs / (1000 * 60)) : 0
-            }))
-            .catch(err => {
-              console.error(`Error fetching heatmap data for ${dateString}:`, err);
-              return null;
-            })
-        );
-        const nextDate = new Date(currentDateLoop);
-        nextDate.setDate(currentDateLoop.getDate() + 1);
-        currentDateLoop = nextDate;
-      }
-
       try {
-        const results = await Promise.all(promises);
-        const validResults = results.filter(Boolean) as HeatmapData[];
-        setHeatmapData(validResults);
+        const params = new URLSearchParams({
+          userId: slackUserIdFromParams,
+          workspaceId: selectedWorkspaceIdFromStore,
+          year: String(HEATMAP_TARGET_YEAR),
+        });
+        const response = await fetch(`/api/activity/heatmap?${params.toString()}`);
+        if (!response.ok) throw new Error(`Failed to fetch heatmap: ${response.status}`);
+        const results: HeatmapData[] = await response.json();
+        setHeatmapData(results);
       } catch (err) {
         console.error("Error fetching all heatmap data entries:", err);
         setHeatmapData([]);

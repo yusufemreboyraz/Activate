@@ -43,3 +43,12 @@ activate-91813-firebase-adminsdk-fbsvc-7d583a124b.json
 /scripts
 logs.txt
 /firestore_backup
+
+/lib/generated/prisma
+
+# local sqlite database
+/prisma/*.db
+/prisma/*.db-journal
+
+# personal Claude Code overrides (not shared)
+/.claude/settings.local.json

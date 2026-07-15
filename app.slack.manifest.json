@@ -14,8 +14,7 @@
                 "users:read"
             ],
             "bot": [
-                "users:read",
-                "users:read.presence"
+                "users:read"
             ]
         }
     },

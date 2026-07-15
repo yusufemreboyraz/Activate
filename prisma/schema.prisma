@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A connected Slack workspace (formerly the `slack_workspaces` Firestore collection).
+model Workspace {
+  id               String   @id // Slack team.id
+  name             String
+  botToken         String
+  appId            String?
+  botUserId        String?
+  scopes           String?
+  installationDate DateTime @default(now())
+  status           String   @default("active")
+
+  userStatuses     UserStatus[]
+  activitySessions ActivitySession[]
+
+  @@map("slack_workspaces")
+}
+
+// Latest known Slack status/presence for a user (formerly `user_statuses`).
+// Keyed by the Slack user id, matching the previous Firestore document id.
+model UserStatus {
+  userId           String    @id
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name             String
+  presence         String?
+  lastPresence     String?
+  activeSessionId  String?
+  statusText       String?
+  statusEmoji      String?
+  statusExpiration Int?
+  realName         String?
+  displayName      String?
+  imageOriginal    String?
+  updatedAt        DateTime
+
+  @@index([workspaceId])
+  @@map("user_statuses")
+}
+
+// A single active/away work session for a user (formerly `activity_sessions`).
+model ActivitySession {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  startTime   DateTime
+  endTime     DateTime?
+  lastSeen    DateTime
+
+  @@index([userId, workspaceId, startTime])
+  @@map("activity_sessions")
+}
