@@ -1,0 +1,22 @@
+name: Check Slack presence
+
+on:
+  schedule:
+    # Every 5 minutes — GitHub Actions' minimum schedule interval.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the presence-check cron endpoint
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${{ vars.APP_BASE_URL }}/api/cron/check-presence" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "Response status: $status"
+          if [ "$status" -ge 300 ]; then
+            echo "check-presence returned $status"
+            exit 1
+          fi
