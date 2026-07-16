@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+import { config } from 'dotenv';
 import { defineConfig } from 'vitest/config';
 
-const testDbPath = path.resolve(fileURLToPath(new URL('.', import.meta.url)), 'prisma/test.db');
+config({ path: '.env.local' });
 
 export default defineConfig({
   resolve: {
@@ -12,9 +12,5 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    globalSetup: ['./vitest.global-setup.ts'],
-    env: {
-      DATABASE_URL: `file:${testDbPath}`,
-    },
   },
 });
