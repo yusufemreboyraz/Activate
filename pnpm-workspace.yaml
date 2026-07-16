@@ -4,6 +4,20 @@ allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true
   prisma: true
-  protobufjs: true
   sharp: true
   unrs-resolver: true
+
+# Patch-level bumps for known vulnerabilities in transitive deps, bounded to
+# the same major version consumers already expect — an open-ended range lets
+# pnpm resolve to the newest major available, which broke eslint (ajv 6->8,
+# js-yaml 4->5) the first time this was tried.
+overrides:
+  axios: '>=1.16.0 <2'
+  form-data: '>=4.0.6 <5'
+  tar: '>=7.5.16 <8'
+  js-yaml: '>=4.1.2 <5'
+  lodash: '>=4.17.24 <5'
+  flatted: '>=3.4.2 <4'
+  follow-redirects: '>=1.15.12 <2'
+  ajv: '>=6.14.0 <7'
+  postcss: '>=8.5.10 <9'

@@ -11,16 +11,15 @@ It supports multiple Slack workspaces at once. Each workspace installs the Slack
 - The current status of every user is kept in a `UserStatus` row and is what the dashboard reads.
 - The dashboard itself never talks to the database directly — client components (`app/page.tsx`, `app/users/[userId]/page.tsx`, `stores/workspaceStore.ts`) fetch from small JSON API routes (`/api/workspaces`, `/api/user-statuses`, `/api/activity`, `/api/activity/heatmap`), which run the Prisma queries server-side.
 - A dashboard (`app/page.tsx` and related components) renders this data as tables, cards, and an activity heatmap, with a workspace switcher backed by a Zustand store.
-- A Slack slash command handler (`POST /api/slack/webhook`) verifies the Slack request signature and implements a `/meeting` command that creates a Google Meet space (via a Google service account / OAuth refresh token) and posts the link back to the channel.
+- A Slack slash command handler (`POST /api/slack/webhook`) verifies the Slack request signature; command handling beyond that is a stub (no commands are implemented right now).
 - Sign-in to the dashboard itself uses NextAuth.js with a simple credentials provider (a single configured username/password), not Slack OAuth — Slack OAuth is only used to install the bot into a workspace.
 
 ## Tech stack
 
 - Next.js 15 (App Router) + React 19 + TypeScript
-- Prisma + SQLite (local file database) as the data store — see [Database](#database) below
+- Prisma + Postgres ([Neon](https://neon.tech)) as the data store — see [Database](#database) below
 - NextAuth.js (`next-auth` v5 beta) for dashboard authentication
 - `@slack/web-api` for Slack API calls
-- `@google-apps/meet`, `google-auth-library`, `googleapis` for the `/meeting` slash command
 - Tailwind CSS + shadcn/ui (Radix primitives) + Recharts/Tremor for the UI
 - Zustand for client-side workspace state
 - Vitest for unit tests
@@ -31,9 +30,8 @@ It supports multiple Slack workspaces at once. Each workspace installs the Slack
 app/
   api/auth/[...nextauth]/    NextAuth route handlers
   api/auth/slack/callback/   Slack OAuth callback — exchanges code, upserts the workspace + bot token
-  api/auth/google/callback/  Google OAuth callback (Meet integration setup)
   api/cron/check-presence/   Polls Slack presence for all active workspaces, writes sessions/status
-  api/slack/webhook/         Slack event/slash-command endpoint (signature-verified), handles /meeting
+  api/slack/webhook/         Slack event/slash-command endpoint (signature-verified)
   api/test-presence/         Manual test endpoint for a single hardcoded Slack user ID
   api/workspaces/            List active workspaces (used by the workspace switcher)
   api/user-statuses/         List/get user statuses for a workspace
@@ -55,26 +53,21 @@ app.slack.manifest.json       Slack app manifest (bot scopes: users:read)
 
 ## Database
 
-Local development uses SQLite through Prisma — no external service or account needed. The database file lives at `prisma/dev.db` and is gitignored.
+Postgres, hosted on [Neon](https://neon.tech), used for both local development and production. Prisma's generated client has no native query engine (`engineType = "client"` in `prisma/schema.prisma`) — queries run through `@prisma/adapter-pg` and a `pg` connection pool (`lib/prisma.ts`) instead, which avoids the native-binary bundling issues that native Prisma engines hit on serverless platforms like Vercel.
 
 ```bash
-pnpm prisma migrate dev   # apply schema changes, creates prisma/dev.db on first run
-pnpm prisma studio        # browse/edit the local database in a GUI
+pnpm prisma migrate dev   # apply schema changes
+pnpm prisma studio        # browse/edit the database in a GUI
+pnpm db:seed               # populate demo data (a workspace + two users with sample activity)
 ```
-
-To move to a hosted Postgres database later (Supabase, Google Cloud SQL, Neon, etc.), change `provider` in `prisma/schema.prisma` from `sqlite` to `postgresql` and point `DATABASE_URL` at the hosted connection string — the application code (`lib/prisma.ts` and everything built on top of it) doesn't change.
 
 ## Environment variables
 
 These are the environment variables actually read by the code:
 
 ```env
-# Local SQLite database (used by lib/prisma.ts and the Prisma CLI).
-# Must be an absolute path: the Prisma CLI resolves relative "file:" URLs relative
-# to prisma/schema.prisma, while the Prisma Client at runtime resolves them relative
-# to the process cwd — those disagree on a relative path, so use an absolute one,
-# e.g. DATABASE_URL="file:/absolute/path/to/repo/prisma/dev.db"
-DATABASE_URL="file:/absolute/path/to/repo/prisma/dev.db"
+# Postgres connection string (Neon), used by lib/prisma.ts and the Prisma CLI
+DATABASE_URL=
 
 # Base URL used to build OAuth redirect/callback URLs
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
@@ -97,11 +90,6 @@ SLACK_BOT_TOKEN=
 
 # Cron job authorization for /api/cron/check-presence (Authorization: Bearer <CRON_SECRET>)
 CRON_SECRET=
-
-# Google OAuth (for the /meeting slash command, creates Google Meet spaces)
-GOOGLE_OAUTH_CLIENT_ID=
-GOOGLE_OAUTH_CLIENT_SECRET=
-GOOGLE_REFRESH_TOKEN=
 ```
 
 Note: what triggers `/api/cron/check-presence` on a schedule (Vercel Cron, GitHub Actions, or something else) is not part of this repository — you need to set that up yourself and send `Authorization: Bearer <CRON_SECRET>` with the request.
@@ -122,8 +110,8 @@ To connect a workspace, create/configure a Slack app with these scopes, set its 
    ```bash
    pnpm install
    ```
-2. Create a `.env.local` file with the variables listed above.
-3. Apply the database schema (creates `prisma/dev.db`):
+2. Create a `.env.local` file with the variables listed above (`DATABASE_URL` needs a real Postgres connection string, e.g. from a free [Neon](https://neon.tech) project).
+3. Apply the database schema:
    ```bash
    pnpm prisma migrate dev
    ```
