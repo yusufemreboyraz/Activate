@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+.vercel
+.env*
+coverage
+lib/generated
+*.tsbuildinfo
+.claude
+.agents
+README.md

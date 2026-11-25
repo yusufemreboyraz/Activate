@@ -1,77 +1,100 @@
 // Server-only activity calculations (Prisma). Do not import from client components.
 import { prisma } from '@/lib/prisma';
 import type { ActivitySessionModel as ActivitySession } from '@/lib/generated/prisma/models';
-import {
-  formatDuration,
-  formatTime,
-  formatDateToYYYYMMDD,
-  type ActivityData,
-  type WorkSession,
-} from '@/lib/activityUtils';
+import { formatDuration, type ActivityData, type WorkSession } from '@/lib/activityUtils';
+import { addDays, appTimeZone, dayBounds, timeInZone } from '@/lib/time';
 
-const dayBounds = (dateString: string): { start: Date; end: Date } => ({
-  start: new Date(`${dateString}T00:00:00.000Z`),
-  end: new Date(`${dateString}T23:59:59.999Z`),
-});
+type SessionLike = Pick<ActivitySession, 'startTime' | 'endTime'>;
 
-// Computes how much of `sessions` overlaps [dayStart, dayEnd]. Sessions are assumed
-// pre-filtered to ones that could plausibly overlap (see the Prisma queries below).
-function computeDayActivity(
-  sessions: ActivitySession[],
-  dayStart: Date,
-  dayEnd: Date,
-  now: Date
+// How much of `sessions` overlaps [rangeStart, rangeEnd]. rangeEnd is the last
+// millisecond of the range (inclusive), as returned by dayBounds. An open
+// session (endTime null) counts up to `now`.
+export function computeRangeActivity(
+  sessions: SessionLike[],
+  rangeStart: Date,
+  rangeEnd: Date,
+  now: Date,
+  timeZone = appTimeZone()
 ): ActivityData {
-  const dayStartMs = dayStart.getTime();
-  const dayEndMs = dayEnd.getTime();
+  const rangeStartMs = rangeStart.getTime();
+  const rangeEndMs = Math.min(rangeEnd.getTime() + 1, now.getTime());
   let totalActiveMs = 0;
   const workSessions: WorkSession[] = [];
 
   for (const session of sessions) {
-    const sessionStartMs = session.startTime.getTime();
-    const sessionEndMs = (session.endTime ?? now).getTime();
-
-    const effectiveStartMs = Math.max(sessionStartMs, dayStartMs);
-    const effectiveEndMs = Math.min(sessionEndMs, dayEndMs);
+    const effectiveStartMs = Math.max(session.startTime.getTime(), rangeStartMs);
+    const effectiveEndMs = Math.min((session.endTime ?? now).getTime(), rangeEndMs);
 
     if (effectiveEndMs > effectiveStartMs) {
       const durationMs = effectiveEndMs - effectiveStartMs;
       totalActiveMs += durationMs;
       workSessions.push({
-        startTime: formatTime(new Date(effectiveStartMs)),
-        endTime: formatTime(new Date(effectiveEndMs)),
+        startTime: timeInZone(new Date(effectiveStartMs), timeZone),
+        endTime: session.endTime ? timeInZone(new Date(effectiveEndMs), timeZone) : 'şu an',
         duration: formatDuration(durationMs),
         durationMs,
       });
     }
   }
 
+  return { workSessions, totalActiveMs, activityChanges: workSessions.length };
+}
+
+function overlapping(start: Date, end: Date) {
   return {
-    workSessions,
-    totalActiveMs,
-    activityChanges: workSessions.length,
+    startTime: { lte: end },
+    OR: [{ endTime: null }, { endTime: { gte: start } }],
   };
 }
 
-export const calculateActivityForDate = async (
+export async function calculateActivityForRange(
   userId: string,
   workspaceId: string,
-  targetDateString: string
-): Promise<ActivityData> => {
-  const { start, end } = dayBounds(targetDateString);
-
+  fromDate: string,
+  toDate: string,
+  now = new Date()
+): Promise<ActivityData> {
+  const { start } = dayBounds(fromDate);
+  const { end } = dayBounds(toDate);
   const sessions = await prisma.activitySession.findMany({
-    where: {
-      userId,
-      workspaceId,
-      startTime: { lte: end },
-      OR: [{ endTime: null }, { endTime: { gte: start } }],
-    },
+    where: { userId, workspaceId, ...overlapping(start, end) },
     orderBy: { startTime: 'asc' },
   });
+  return computeRangeActivity(sessions, start, end, now);
+}
 
-  return computeDayActivity(sessions, start, end, new Date());
-};
+export const calculateActivityForDate = (
+  userId: string,
+  workspaceId: string,
+  dateString: string,
+  now = new Date()
+): Promise<ActivityData> => calculateActivityForRange(userId, workspaceId, dateString, dateString, now);
+
+// Today's total for every user of a workspace, in one query.
+export async function calculateWorkspaceTotalsForDate(
+  workspaceId: string,
+  dateString: string,
+  now = new Date()
+): Promise<Map<string, number>> {
+  const { start, end } = dayBounds(dateString);
+  const sessions = await prisma.activitySession.findMany({
+    where: { workspaceId, ...overlapping(start, end) },
+    select: { userId: true, startTime: true, endTime: true },
+  });
+
+  const byUser = new Map<string, SessionLike[]>();
+  for (const s of sessions) {
+    const list = byUser.get(s.userId) ?? [];
+    list.push(s);
+    byUser.set(s.userId, list);
+  }
+
+  const totals = new Map<string, number>();
+  for (const [userId, list] of byUser) {
+    totals.set(userId, computeRangeActivity(list, start, end, now).totalActiveMs);
+  }
+  return totals;
+}
 
 export interface HeatmapDay {
   date: string;
@@ -79,43 +102,28 @@ export interface HeatmapDay {
   count: number;
 }
 
-// Fetches a year's worth of sessions in one query, then buckets them by local
-// calendar day in memory — avoids one DB round trip per day of the year.
-export const calculateActivityForYear = async (
+// A year's worth of sessions in one query, bucketed by local calendar day in memory.
+export async function calculateActivityForYear(
   userId: string,
   workspaceId: string,
-  year: number
-): Promise<HeatmapDay[]> => {
-  const yearStartDate = new Date(year, 0, 1);
-  const yearEndDate = new Date(year, 11, 31);
-  const queryStart = dayBounds(formatDateToYYYYMMDD(yearStartDate)).start;
-  const queryEnd = dayBounds(formatDateToYYYYMMDD(yearEndDate)).end;
+  year: number,
+  now = new Date()
+): Promise<HeatmapDay[]> {
+  const firstDay = `${year}-01-01`;
+  const lastDay = `${year}-12-31`;
+  const { start } = dayBounds(firstDay);
+  const { end } = dayBounds(lastDay);
 
   const sessions = await prisma.activitySession.findMany({
-    where: {
-      userId,
-      workspaceId,
-      startTime: { lte: queryEnd },
-      OR: [{ endTime: null }, { endTime: { gte: queryStart } }],
-    },
+    where: { userId, workspaceId, ...overlapping(start, end) },
     orderBy: { startTime: 'asc' },
   });
 
-  const now = new Date();
   const days: HeatmapDay[] = [];
-  const cursor = new Date(yearStartDate);
-
-  while (cursor <= yearEndDate) {
-    const dateString = formatDateToYYYYMMDD(cursor);
-    const { start, end } = dayBounds(dateString);
-    const { totalActiveMs } = computeDayActivity(sessions, start, end, now);
-    days.push({
-      date: dateString,
-      totalActiveMs,
-      count: totalActiveMs > 0 ? totalActiveMs / (1000 * 60) : 0,
-    });
-    cursor.setDate(cursor.getDate() + 1);
+  for (let date = firstDay; date <= lastDay; date = addDays(date, 1)) {
+    const bounds = dayBounds(date);
+    const { totalActiveMs } = computeRangeActivity(sessions, bounds.start, bounds.end, now);
+    days.push({ date, totalActiveMs, count: totalActiveMs / (1000 * 60) });
   }
-
   return days;
-};
+}

@@ -1,127 +1,91 @@
 # Activate
 
-Activate is a Next.js web application that tracks Slack users' presence (`active` / `away`) over time and turns it into per-user activity reports: total active time, number of activity sessions, and a timeline of status changes for a given day.
+Activate tracks when people in a Slack workspace show as **active** in Slack and turns that into daily activity reports: total active time, sessions and a yearly heatmap per person. Team members can check their own numbers with the `/activate` slash command; admins see everyone on the dashboard.
 
-It supports multiple Slack workspaces at once. Each workspace installs the Slack app via OAuth; the resulting bot token is stored in the database and used to poll that workspace's users.
+It measures Slack presence, not work. Slack marks someone active while a Slack client is open and in use, so treat the numbers as "time online in Slack". Tell your team that their presence is recorded before you turn it on.
 
 ## How it works
 
-- A cron-triggered endpoint (`GET`/`POST /api/cron/check-presence`) reads all active workspaces from the database, calls the Slack Web API (`users.list`, `users.getPresence`) for each workspace's users, and diffs the new presence against the last known value.
-- Transitions between `active` and `away` open or close an `ActivitySession` row, which is what lets the app compute total active time and session counts per day. The start/continue/end decision is a pure function (`lib/presenceSession.ts`), unit tested independently of Slack or the database.
-- The current status of every user is kept in a `UserStatus` row and is what the dashboard reads.
-- The dashboard itself never talks to the database directly — client components (`app/page.tsx`, `app/users/[userId]/page.tsx`, `stores/workspaceStore.ts`) fetch from small JSON API routes (`/api/workspaces`, `/api/user-statuses`, `/api/activity`, `/api/activity/heatmap`), which run the Prisma queries server-side.
-- A dashboard (`app/page.tsx` and related components) renders this data as tables, cards, and an activity heatmap, with a workspace switcher backed by a Zustand store.
-- A Slack slash command handler (`POST /api/slack/webhook`) verifies the Slack request signature; command handling beyond that is a stub (no commands are implemented right now).
-- Sign-in to the dashboard itself uses NextAuth.js with a simple credentials provider (a single configured username/password), not Slack OAuth — Slack OAuth is only used to install the bot into a workspace.
+- **Polling.** Cloud Scheduler calls `POST /api/cron/check-presence` every 2 minutes with the `X-Cron-Secret` header. For every connected workspace the route lists members (`users.list`) and reads each member's presence (`users.getPresence`, five at a time; `@slack/web-api` honours Slack rate limits).
+- **Sessions.** `lib/presenceSession.ts` is a pure state machine: a member who turns active opens an `ActivitySession`, staying active extends it (`lastSeen`), going away closes it. If no reading arrived for more than 10 minutes (a missed scheduler run, a Slack outage), the open session is closed at the last time the member was actually seen, not stretched across the gap. Members who leave the workspace get their session closed.
+- **One run at a time.** A lease row in `cron_locks` (`withCronLease` in `lib/presenceSync.ts`) stops two overlapping runs from both writing sessions.
+- **Days are local.** Day boundaries and times use `APP_TIMEZONE` (default `Europe/Istanbul`), see `lib/time.ts`.
+- **Dashboard.** Client pages call small JSON routes (`/api/workspaces`, `/api/user-statuses`, `/api/activity`, `/api/activity/heatmap`) that run Prisma queries server-side.
+- **Slash command.** `POST /api/slack/webhook` verifies Slack's request signature and answers `/activate` with the caller's active time today and this week, visible only to them.
 
-## Tech stack
+## Security model
 
-- Next.js 15 (App Router) + React 19 + TypeScript
-- Prisma + Postgres ([Neon](https://neon.tech)) as the data store — see [Database](#database) below
-- NextAuth.js (`next-auth` v5 beta) for dashboard authentication
-- `@slack/web-api` for Slack API calls
-- Tailwind CSS + shadcn/ui (Radix primitives) + Recharts/Tremor for the UI
-- Zustand for client-side workspace state
-- Vitest for unit tests
+- **Dashboard sign-in** is "Sign in with Slack". Only emails listed in `ADMIN_EMAILS` get in, and only from the workspaces in `SLACK_ALLOWED_TEAM_IDS`. The allowlist is checked on every request, so removing someone takes effect immediately.
+- **Every non-public route** is gated twice: by the middleware (`auth.config.ts`, `authorized`) and by `requireAdmin()` inside each API route handler. Public paths are listed explicitly; each one authenticates its caller itself (Slack signature, cron secret, OAuth state).
+- **Connecting a workspace** ("Slack workspace bağla" in the sidebar, `/api/slack/install`) requires a signed-in admin and a one-time `state` cookie that the OAuth callback checks.
+- **Bot tokens** are stored AES-256-GCM encrypted (`lib/tokenCrypto.ts`, key in `TOKEN_ENCRYPTION_KEY`).
+- **Database TLS** is fully verified against the Supabase root CA pinned in `prisma/supabase-root-ca-2021.crt` (`DATABASE_SSL_CA_FILE`). Row Level Security is enabled on every table with no policies, and the Supabase Data API is turned off, so nothing is reachable through Supabase's REST endpoints.
 
-## Project structure
+## Infrastructure
 
-```
-app/
-  api/auth/[...nextauth]/    NextAuth route handlers
-  api/auth/slack/callback/   Slack OAuth callback — exchanges code, upserts the workspace + bot token
-  api/cron/check-presence/   Polls Slack presence for all active workspaces, writes sessions/status
-  api/slack/webhook/         Slack event/slash-command endpoint (signature-verified)
-  api/test-presence/         Manual test endpoint for a single hardcoded Slack user ID
-  api/workspaces/            List active workspaces (used by the workspace switcher)
-  api/user-statuses/         List/get user statuses for a workspace
-  api/activity/              Per-day activity (work sessions, total active time)
-  api/activity/heatmap/      A full year of daily activity totals in one query
-  users/[userId]/            Per-user activity detail page
-  page.tsx                   Main dashboard
-components/                  Dashboard UI (sidebar, tables, cards, charts) and shadcn/ui primitives
-prisma/schema.prisma          Database schema (Workspace, UserStatus, ActivitySession)
-lib/prisma.ts                 Prisma client singleton (server-only)
-lib/activityService.ts        Session/activity calculations that hit the database (server-only)
-lib/activityUtils.ts          Pure formatting helpers + shared types, safe to import from client components
-lib/presenceSession.ts        Pure active/away session state machine used by the cron job
-stores/workspaceStore.ts      Zustand store for the selected workspace (fetches /api/workspaces)
-auth.ts / auth.config.ts      NextAuth configuration (credentials provider)
-middleware.ts                 Route protection, delegates to auth.ts
-app.slack.manifest.json       Slack app manifest (bot scopes: users:read)
-```
+| Piece | Where | Cost |
+|---|---|---|
+| App | Cloud Run service `activate`, project `<gcp-project>`, region `europe-west1` | Free tier |
+| Schedule | Cloud Scheduler job `check-presence`, every 2 minutes | Free (3 jobs per billing account) |
+| Secrets | Secret Manager in `<gcp-project>` | Cents |
+| Database | Supabase project `activate` (eu-west-1), Free plan, session pooler | $0 |
 
-## Database
-
-Postgres, hosted on [Neon](https://neon.tech), used for both local development and production. Prisma's generated client has no native query engine (`engineType = "client"` in `prisma/schema.prisma`) — queries run through `@prisma/adapter-pg` and a `pg` connection pool (`lib/prisma.ts`) instead, which avoids the native-binary bundling issues that native Prisma engines hit on serverless platforms like Vercel.
-
-```bash
-pnpm prisma migrate dev   # apply schema changes
-pnpm prisma studio        # browse/edit the database in a GUI
-pnpm db:seed               # populate demo data (a workspace + two users with sample activity)
-```
+Supabase pauses Free projects after a week without database activity. The two-minute poll keeps it active.
 
 ## Environment variables
 
-These are the environment variables actually read by the code:
-
 ```env
-# Postgres connection string (Neon), used by lib/prisma.ts and the Prisma CLI
-DATABASE_URL=
+# Postgres (Supabase session pooler, port 5432). No sslmode in the URL; TLS comes from the CA file.
+DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+DATABASE_SSL_CA_FILE=/app/certs/supabase-root-ca-2021.crt   # unset for a local database
 
-# Base URL used to build OAuth redirect/callback URLs
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
+APP_BASE_URL=https://activate-75469006922.europe-west1.run.app
+APP_TIMEZONE=Europe/Istanbul
 
-# Dashboard login (NextAuth credentials provider)
-AUTH_USERNAME=
-AUTH_PASSWORD=
-AUTH_SECRET=            # openssl rand -hex 32
+# Dashboard access
+AUTH_SECRET=                 # openssl rand -hex 32
+AUTH_TRUST_HOST=true
+ADMIN_EMAILS=a@example.com,b@example.com
+SLACK_ALLOWED_TEAM_IDS=T0123456789
 
-# Slack app OAuth (installing the bot into a workspace)
+# Slack app
 SLACK_CLIENT_ID=
 SLACK_CLIENT_SECRET=
-
-# Slack request verification (for /api/slack/webhook)
 SLACK_SIGNING_SECRET=
 
-# Slack bot token, only used by the manual /api/test-presence endpoint
-# (the cron job instead uses per-workspace bot tokens stored in the database)
-SLACK_BOT_TOKEN=
-
-# Cron job authorization for /api/cron/check-presence (Authorization: Bearer <CRON_SECRET>)
-CRON_SECRET=
+# Cron + token encryption
+CRON_SECRET=                 # openssl rand -hex 32
+TOKEN_ENCRYPTION_KEY=        # openssl rand -base64 32
 ```
 
-Note: what triggers `/api/cron/check-presence` on a schedule (Vercel Cron, GitHub Actions, or something else) is not part of this repository — you need to set that up yourself and send `Authorization: Bearer <CRON_SECRET>` with the request.
+## Slack app
 
-## Slack app configuration
+`app.slack.manifest.json` is the app's manifest (paste it into the app's **App Manifest** page). Bot scopes are `users:read` and `commands`; user scopes `openid`, `email`, `profile` are for Sign in with Slack. Redirect URLs cover both the bot install callback (`/api/auth/slack/callback`) and the sign-in callback (`/api/auth/callback/slack`).
 
-`app.slack.manifest.json` defines the Slack app used by this project:
+## Development
 
-- Bot scopes: `users:read`
-- User scope: `users:read`
-- Socket mode and org-wide install are disabled
+```bash
+pnpm install
+pnpm db:test:up              # local Postgres on :54329 for tests (Docker)
+pnpm test                    # vitest; refuses to run against a non-local database
+pnpm lint && pnpm typecheck
+pnpm dev
+```
 
-To connect a workspace, create/configure a Slack app with these scopes, set its OAuth redirect URL to `<NEXT_PUBLIC_BASE_URL>/api/auth/slack/callback`, and point Slack event/slash-command requests at `<NEXT_PUBLIC_BASE_URL>/api/slack/webhook`.
+Tests never touch a hosted database: `vitest.config.ts` points `DATABASE_URL` at the local container and aborts if the host is not local.
 
-## Setup
+## Deploying
 
-1. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-2. Create a `.env.local` file with the variables listed above (`DATABASE_URL` needs a real Postgres connection string, e.g. from a free [Neon](https://neon.tech) project).
-3. Apply the database schema:
-   ```bash
-   pnpm prisma migrate dev
-   ```
-4. Run the dev server:
-   ```bash
-   pnpm dev
-   ```
-   The app runs at http://localhost:3000.
+```bash
+# Database migrations (Linux image, strict TLS against the pinned CA)
+docker build --target migrate -t activate-migrate .
+docker run --rm -e DATABASE_URL="<url>?sslmode=require&sslcert=/app/prisma/supabase-root-ca-2021.crt&sslaccept=strict" activate-migrate
 
-Other scripts: `pnpm build`, `pnpm start`, `pnpm lint`, `pnpm test`.
+# App
+gcloud run deploy activate --source . --project <gcp-project> --region europe-west1
+```
+
+`gcloud run deploy --source` keeps the existing environment variables and secrets of the service.
 
 ## License
 

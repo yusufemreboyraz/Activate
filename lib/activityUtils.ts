@@ -17,7 +17,7 @@ export const formatDuration = (ms: number): string => {
   if (ms < 0) ms = 0;
   const seconds = Math.floor((ms / 1000) % 60);
   const minutes = Math.floor((ms / (1000 * 60)) % 60);
-  const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
+  const hours = Math.floor(ms / (1000 * 60 * 60));
 
   const parts: string[] = [];
   if (hours > 0) parts.push(hours + 'h');
