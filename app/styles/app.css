@@ -198,7 +198,7 @@ body::before {
   margin-left: -.04em; white-space: nowrap;
 }
 .hero-cap { font-size: clamp(16px, 1.6vw, 19px); font-weight: 600; max-width: 52ch; text-wrap: pretty; }
-.hero-cap b { font-weight: 800; background: var(--active); padding: 0 4px; }
+.hero-cap b { font-weight: 800; background: var(--active); padding: 0 4px; white-space: nowrap; }
 .hero-num .of { opacity: .35; }
 .hero-num { margin-top: .12em; }
 .hero-num .word { display: inline-block; background: var(--active); padding: 0 .08em; transform: rotate(-2.5deg); margin-left: .05em; }
