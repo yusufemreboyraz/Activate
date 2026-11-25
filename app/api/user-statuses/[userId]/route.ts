@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/auth';
+import { requireUser } from '@/auth';
+import { canAccessWorkspace } from '@/lib/access';
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const user = await requireUser();
+  if (user instanceof Response) return user;
 
   const { userId } = await params;
 
   const status = await prisma.userStatus.findUnique({ where: { userId } });
-  if (!status) {
+  // Same answer for "no such user" and "not in your workspaces".
+  if (!status || !(await canAccessWorkspace(user.email, status.workspaceId))) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 

@@ -3,9 +3,10 @@ import Slack from 'next-auth/providers/slack';
 
 // Edge-safe auth configuration (used by middleware.ts and auth.ts).
 //
-// Dashboard sign-in is "Sign in with Slack". Only people whose Slack email is
-// listed in ADMIN_EMAILS (comma-separated) may get in; when SLACK_ALLOWED_TEAM_IDS
-// is set, they must also sign in from one of those Slack workspaces.
+// Dashboard sign-in is "Sign in with Slack". Anyone whose verified Slack email
+// belongs to a member of a connected workspace may sign in (checked in auth.ts,
+// which can reach the database); ADMIN_EMAILS (comma-separated) additionally
+// may connect workspaces.
 
 const list = (value: string | undefined) =>
   (value ?? '')
@@ -16,12 +17,6 @@ const list = (value: string | undefined) =>
 export function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
   return list(process.env.ADMIN_EMAILS).includes(email.toLowerCase());
-}
-
-function isAllowedTeam(teamId: unknown): boolean {
-  const allowed = list(process.env.SLACK_ALLOWED_TEAM_IDS);
-  if (allowed.length === 0) return true;
-  return typeof teamId === 'string' && allowed.includes(teamId.toLowerCase());
 }
 
 // Paths reachable without a dashboard session. Each of these authenticates
@@ -45,22 +40,13 @@ export const authConfig = {
     }),
   ],
   callbacks: {
-    async signIn({ profile }) {
-      const p = (profile ?? {}) as Record<string, unknown>;
-      const email = typeof p.email === 'string' ? p.email : null;
-      if (p.email_verified === false) return false;
-      const allowed = isAdminEmail(email) && isAllowedTeam(p['https://slack.com/team_id']);
-      // An audit line for refused sign-ins, so an admin can see who tried.
-      if (!allowed) console.warn(`Dashboard sign-in refused for ${email ?? 'unknown email'}`);
-      return allowed;
-    },
     authorized({ auth, request: { nextUrl } }) {
       const path = nextUrl.pathname;
       if (PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix))) return true;
 
-      // Re-checked on every request so removing someone from ADMIN_EMAILS
-      // takes effect without waiting for their session to expire.
-      if (auth?.user && isAdminEmail(auth.user.email)) return true;
+      // Pages only need a signed-in user; which workspaces they may see is
+      // checked against the database in every API route (lib/access.ts).
+      if (auth?.user?.email) return true;
 
       if (path.startsWith('/api/')) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });

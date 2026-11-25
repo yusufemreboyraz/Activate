@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/auth';
+import { requireWorkspaceAccess } from '@/auth';
 import { calculateWorkspaceTotalsForDate } from '@/lib/activityService';
 import { formatDuration } from '@/lib/activityUtils';
 import { dateStringInZone } from '@/lib/time';
 
 export async function GET(request: NextRequest) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
-
   const workspaceId = request.nextUrl.searchParams.get('workspaceId');
   if (!workspaceId) {
     return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 });
   }
+  const access = await requireWorkspaceAccess(workspaceId);
+  if (access instanceof Response) return access;
 
   const [statuses, totals] = await Promise.all([
-    prisma.userStatus.findMany({ where: { workspaceId }, orderBy: { name: 'asc' } }),
+    prisma.userStatus.findMany({ where: { workspaceId, isMember: true }, orderBy: { name: 'asc' } }),
     calculateWorkspaceTotalsForDate(workspaceId, dateStringInZone(new Date())),
   ]);
 

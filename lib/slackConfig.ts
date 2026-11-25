@@ -1,5 +1,6 @@
 // Slack OAuth settings shared by the install and callback routes.
-export const SLACK_BOT_SCOPES = ['users:read', 'commands'];
+// users:read.email lets dashboard access follow workspace membership (lib/access.ts).
+export const SLACK_BOT_SCOPES = ['users:read', 'users:read.email', 'commands'];
 export const OAUTH_STATE_COOKIE = 'activate_slack_oauth_state';
 
 export function baseUrl(): string {

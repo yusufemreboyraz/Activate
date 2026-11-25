@@ -46,13 +46,9 @@ describe('authorized callback', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects a signed-in user who is not on the allowlist', () => {
-    expect((call('/', 'intruder@example.com') as Response).status).toBe(302);
-  });
-
-  it('allows an admin', () => {
-    expect(call('/', 'admin@example.com')).toBe(true);
-    expect(call('/api/slack/install', 'admin@example.com')).toBe(true);
+  it('lets any signed-in user reach pages; API routes scope the data', () => {
+    expect(call('/', 'member@example.com')).toBe(true);
+    expect(call('/api/workspaces', 'member@example.com')).toBe(true);
   });
 
   it('keeps /api/slack/install behind sign-in', () => {

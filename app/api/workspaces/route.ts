@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/auth';
+import { requireUser } from '@/auth';
+import { accessibleWorkspaceIds } from '@/lib/access';
 
+// Only the workspaces the signed-in person is a member of.
 export async function GET() {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const user = await requireUser();
+  if (user instanceof Response) return user;
 
+  const ids = await accessibleWorkspaceIds(user.email);
   const workspaces = await prisma.workspace.findMany({
-    where: { status: 'active' },
+    where: { id: { in: ids }, status: 'active' },
     select: { id: true, name: true, status: true },
     orderBy: { name: 'asc' },
   });
