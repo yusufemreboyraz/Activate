@@ -6,12 +6,12 @@ import { DayStrip, sessionSpan } from '@/components/brand/DayStrip';
 import { Heatmap } from '@/components/brand/Heatmap';
 import { Presence } from '@/components/brand/Presence';
 import { WeekBars } from '@/components/brand/WeekBars';
-import { DateJump } from '@/components/person/DateJump';
+import { DayNav } from '@/components/person/DayNav';
 import { canAccessWorkspace } from '@/lib/access';
 import { getPersonDay } from '@/lib/dashboard';
-import { clockTr, dayMonthTr, dayMonthYearTr, durationShown, durationSinceTr, durationTr, toneOf, weekdayTr } from '@/lib/format';
+import { clockTr, dayMonthTr, durationShown, durationSinceTr, durationTr, toneOf } from '@/lib/format';
 import { prisma } from '@/lib/prisma';
-import { addDays, dateStringInZone, isDateString } from '@/lib/time';
+import { dateStringInZone, isDateString } from '@/lib/time';
 import { getViewer } from '@/lib/viewer';
 
 export const dynamic = 'force-dynamic';
@@ -46,8 +46,6 @@ export default async function PersonPage({ params, searchParams }: Props) {
 
   const base = `/users/${userId}?w=${wsId}`;
   const hrefFor = (x: string) => (x === today ? base : `${base}&d=${x}`);
-  const prev = addDays(date, -1);
-  const next = addDays(date, 1);
   const p = day.person;
 
   const nowLine =
@@ -60,7 +58,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <Link className="back" href={`/?w=${wsId}`}><span className="arrow" aria-hidden="true">←</span> Tüm ekip</Link>
+      <Link className="back" href={day.isToday ? `/?w=${wsId}` : `/?w=${wsId}&d=${date}`}><span className="arrow" aria-hidden="true">←</span> Tüm ekip</Link>
 
       <header className={`phead tone-${toneOf(userId)} is-${p.presence}`} style={{ ['--tile' as string]: `var(--tone-${toneOf(userId)})` }}>
         <Avatar name={p.name} src={p.image} />
@@ -71,24 +69,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
         </div>
       </header>
 
-      <nav className="daynav" aria-label="Gün seç">
-        <Link className="daynav-btn" href={hrefFor(prev)} scroll={false} aria-label={`Önceki gün, ${dayMonthTr(prev)}`}>‹</Link>
-        <div className="daynav-date" aria-live="polite">
-          <b>{day.isToday ? 'Bugün' : weekdayTr(date)}</b>
-          <span>{dayMonthYearTr(date)}</span>
-        </div>
-        <Link
-          className="daynav-btn"
-          href={hrefFor(next)}
-          scroll={false}
-          aria-disabled={date >= today}
-          tabIndex={date >= today ? -1 : undefined}
-          aria-label={`Sonraki gün, ${dayMonthTr(next)}`}
-        >›</Link>
-        <span className="daynav-spacer" />
-        {!day.isToday && <Link className="btn btn-ghost" href={base} scroll={false}>Bugünü aç</Link>}
-        <DateJump value={date} max={today} base={base} />
-      </nav>
+      <DayNav date={date} today={today} hrefFor={hrefFor} base={base} />
 
       <dl className="stats">
         <div className="stat is-main"><dt>Toplam</dt><dd className={`num${day.totalMs ? '' : ' zero'}`}>{durationShown(day.totalMs)}</dd></div>

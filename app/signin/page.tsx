@@ -14,6 +14,10 @@ const ERRORS: Record<string, { title: string; body: string }> = {
     title: 'Bu Slack hesabı bağlı bir ekipte bulunamadı.',
     body: 'Activate’e bağlı bir Slack workspace’inde kullandığın hesapla giriş yap. Emin değilsen, Activate linkini paylaşan kişiye sor.',
   },
+  LinkExpired: {
+    title: 'Bu giriş bağlantısı artık geçerli değil.',
+    body: 'Bağlantılar 10 dakika geçerli ve tek kullanımlık. Slack’te /activate yazıp yenisini al.',
+  },
   OAuthCallbackError: { title: 'Slack girişi yarıda kaldı.', body: 'Slack onay ekranında iptal edilmiş olabilir. Tekrar dene.' },
   Configuration: { title: 'Giriş şu an çalışmıyor.', body: 'Sunucu tarafında bir ayar eksik. Yöneticine haber ver.' },
 };
@@ -68,6 +72,10 @@ export default async function SignInPage({ searchParams }: Props) {
           <input type="hidden" name="next" value={next} />
           <button type="submit" className="btn btn-pop">Slack ile giriş yap</button>
         </form>
+        <p className="poster-fine">
+          Telefondan mı giriyorsun? Slack uygulamasında herhangi bir sohbete <b>/activate</b> yaz; gelen
+          “Activate’e gir” bağlantısına dokun. Şifre ya da workspace adresi sorulmaz.
+        </p>
       </div>
 
       <div className="poster-foot">

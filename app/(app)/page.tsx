@@ -6,24 +6,26 @@ import { Presence } from '@/components/brand/Presence';
 import { Ticker } from '@/components/brand/Ticker';
 import { Fresh } from '@/components/live/Fresh';
 import { LiveStatus } from '@/components/live/LiveStatus';
-import { getWorkspaceToday, type PersonToday } from '@/lib/dashboard';
-import { clockTr, dayMonthTr, durationShown, durationSinceTr, durationTr, toneOf, weekdayTr } from '@/lib/format';
+import { DayNav } from '@/components/person/DayNav';
+import { getWorkspaceDay, type PersonToday } from '@/lib/dashboard';
+import { clockTr, dayMonthTr, durationShown, durationSinceTr, durationTr, toneOf } from '@/lib/format';
 import { getViewer, pickWorkspace } from '@/lib/viewer';
-import { dateStringInZone } from '@/lib/time';
+import { dateStringInZone, isDateString } from '@/lib/time';
 import { signOutAction } from '@/app/actions';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { searchParams: Promise<{ w?: string }> };
+type Props = { searchParams: Promise<{ w?: string; d?: string }> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const viewer = await getViewer();
   const { w } = await searchParams;
   const ws = viewer?.workspaces.find((x) => x.id === pickWorkspace(viewer, w));
-  return { title: ws ? `Bugün · ${ws.name}` : 'Bugün' };
+  return { title: ws ? `Ekip · ${ws.name}` : 'Ekip' };
 }
 
-function since(p: PersonToday, now: Date): string {
+function since(p: PersonToday, now: Date, isToday: boolean): string {
+  if (!isToday) return p.sessions.length ? `${p.sessions.length} aktif aralık` : 'bu gün aktif değildi';
   if (p.presence === 'active') {
     return p.activeSince ? `${durationSinceTr(now.getTime() - p.activeSince.getTime())} aktif` : 'şu an aktif';
   }
@@ -36,7 +38,8 @@ function since(p: PersonToday, now: Date): string {
 
 export default async function TodayPage({ searchParams }: Props) {
   const viewer = (await getViewer())!;
-  const wsId = pickWorkspace(viewer, (await searchParams).w);
+  const params = await searchParams;
+  const wsId = pickWorkspace(viewer, params.w);
 
   if (!wsId) {
     return (
@@ -58,41 +61,60 @@ export default async function TodayPage({ searchParams }: Props) {
 
   const ws = viewer.workspaces.find((w) => w.id === wsId)!;
   const now = new Date();
-  const today = await getWorkspaceToday(wsId, now);
+  const todayDate = dateStringInZone(now);
+  const date = params.d && isDateString(params.d) && params.d < todayDate ? params.d : todayDate;
+  const today = await getWorkspaceDay(wsId, date, now, viewer.email);
   const total = durationTr(today.totalMs);
+  const live = today.isToday;
+  const base = `/?w=${wsId}`;
+  const hrefFor = (d: string) => (d === todayDate ? base : `${base}&d=${d}`);
+  const withPeople = today.people.filter((p) => p.todayMs > 0).length;
 
   return (
     <>
+      <DayNav date={date} today={todayDate} hrefFor={hrefFor} base={base} label="Ekibin günü" />
+
       <section className="hero" aria-labelledby="hero-title">
         <p className="kicker">
-          <span>{weekdayTr(today.date)}</span>
-          <span className="dot" aria-hidden="true" />
-          <span>{dayMonthTr(today.date)}</span>
-          <span className="dot" aria-hidden="true" />
           <span className="keep-case">{ws.name}</span>
           <span className="dot" aria-hidden="true" />
-          <LiveStatus syncedAt={today.syncedAt?.toISOString() ?? null} />
+          {live ? <LiveStatus syncedAt={today.syncedAt?.toISOString() ?? null} /> : <span>Günün özeti</span>}
         </p>
-        <h1 id="hero-title" className="hero-num num">
-          <Fresh value={today.activeCount}>{today.activeCount}</Fresh>
-          <span className="of">/{today.people.length}</span> <span className="word">aktif</span>
-          <span className="sr-only"> kişi şu an Slack’te</span>
-        </h1>
-        <p className="hero-cap">
-          {today.people.length} kişiden {today.activeCount} kişi şu an Slack’te aktif. Ekip bugün toplam{' '}
-          <b className="num"><Fresh value={total}>{total}</Fresh></b> aktifti.
-        </p>
+        {live ? (
+          <>
+            <h1 id="hero-title" className="hero-num num">
+              <Fresh value={today.activeCount}>{today.activeCount}</Fresh>
+              <span className="of">/{today.people.length}</span> <span className="word">aktif</span>
+              <span className="sr-only"> kişi şu an Slack’te</span>
+            </h1>
+            <p className="hero-cap">
+              {today.people.length} kişiden {today.activeCount} kişi şu an Slack’te aktif. Ekip bugün toplam{' '}
+              <b className="num"><Fresh value={total}>{total}</Fresh></b> aktifti.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 id="hero-title" className="hero-num num">
+              <span className="sr-only">{dayMonthTr(date)} günü ekip toplamı </span>
+              {total}
+            </h1>
+            <p className="hero-cap">
+              {dayMonthTr(date)} günü {today.people.length} kişiden {withPeople} kişi Slack’te aktifti; ekip toplam{' '}
+              <b className="num">{total}</b>.
+            </p>
+          </>
+        )}
       </section>
 
-      <Ticker events={today.events} />
+      <Ticker events={today.events} live={live} />
 
       <section className="block" aria-labelledby="team-title">
         <div className="block-head">
           <h2 id="team-title">Ekip</h2>
           <p>
-            Önce şu an aktif olanlar, sonra alfabetik ·{' '}
-            <span className="only-afis">şerit: günün 24 saati, siyah = aktif, pembe çizgi = şimdi</span>
-            <span className="only-sinyal">şerit: günün 24 saati, █ = aktif, sarı = şimdi</span>
+            {live ? 'Önce şu an aktif olanlar, sonra alfabetik' : 'Alfabetik'} ·{' '}
+            <span className="only-afis">şerit: günün 24 saati, siyah = aktif{live ? ', pembe çizgi = şimdi' : ''}</span>
+            <span className="only-sinyal">şerit: günün 24 saati, █ = aktif{live ? ', sarı = şimdi' : ''}</span>
           </p>
         </div>
 
@@ -105,20 +127,23 @@ export default async function TodayPage({ searchParams }: Props) {
           <ul className="people">
             {today.people.map((p, i) => {
               const time = durationShown(p.todayMs);
+              // Today the card shows presence now; another day, whether they were active then.
+              const state = live ? p.presence : p.todayMs > 0 ? 'active' : 'away';
               return (
-                <li key={p.userId} className={`person tone-${toneOf(p.userId)} is-${p.presence}`} style={{ ['--i' as string]: i }}>
-                  <Link className="person-link" href={`/users/${p.userId}?w=${wsId}`}>
+                <li key={p.userId} className={`person tone-${toneOf(p.userId)} is-${state}${p.isYou ? ' is-you' : ''}`} style={{ ['--i' as string]: i }}>
+                  <Link className="person-link" href={`/users/${p.userId}?w=${wsId}${live ? '' : `&d=${date}`}`}>
                     <Avatar name={p.name} src={p.image} />
                     <span className="person-name">
                       <span className="keep-case">{p.name}</span>
+                      {p.isYou && <span className="you">sen</span>}
                       {p.isGuest && <span className="guest" title="Bu kişi Slack’te misafir hesapla bulunuyor">Slack misafiri</span>}
                     </span>
-                    <Presence value={p.presence} />
+                    {live && <Presence value={p.presence} />}
                     <span className={`person-time num${p.todayMs ? '' : ' zero'}`}>
-                      <span className="sr-only">bugün </span>
+                      <span className="sr-only">{live ? 'bugün ' : `${dayMonthTr(date)} günü `}</span>
                       <Fresh value={time}>{time}</Fresh>
                     </span>
-                    <span className="person-since">{since(p, now)}</span>
+                    <span className="person-since">{since(p, now, live)}</span>
                     <DayStrip sessions={p.sessions} nowMin={today.nowMin} />
                     <span className="person-go" aria-hidden="true">→</span>
                   </Link>

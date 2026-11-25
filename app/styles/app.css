@@ -559,3 +559,10 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
 
 /* A zero duration prints as a dash: Syne's 0 reads as the letter O. */
 .zero { font-family: var(--font-text); font-weight: 800; letter-spacing: 0; }
+
+/* The viewer's own card. */
+.you { display: inline-block; margin-left: 6px; padding: 0 5px; background: var(--ink); color: var(--bg); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
+.person.is-you .person-link { outline: 3px dashed var(--ink); outline-offset: 5px; }
+:root[data-theme="sinyal"] .you { background: none; color: var(--active); padding: 0; font-weight: 500; letter-spacing: 0; text-transform: lowercase; }
+:root[data-theme="sinyal"] .you::before { content: "← "; }
+:root[data-theme="sinyal"] .person.is-you .person-link { outline: 0; }

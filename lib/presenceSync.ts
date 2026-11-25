@@ -21,6 +21,24 @@ export interface SlackMember {
 export interface SlackPresenceApi {
   listMembers(): Promise<SlackMember[]>;
   getPresence(userId: string): Promise<'active' | 'away' | null>;
+  // True when an uploaded Slack image is a flat colour square, not a photo.
+  isFlatImage?(url: string): Promise<boolean>;
+}
+
+// A 512–1024 px JPEG of one flat colour weighs a few KB; any real photo at
+// that size is several times larger.
+const FLAT_IMAGE_MAX_BYTES = 12_000;
+
+async function imageBytes(url: string): Promise<number | null> {
+  try {
+    const head = await fetch(url, { method: 'HEAD' });
+    const len = Number(head.headers.get('content-length'));
+    if (head.ok && len > 0) return len;
+    const res = await fetch(url);
+    return res.ok ? (await res.arrayBuffer()).byteLength : null;
+  } catch {
+    return null;
+  }
 }
 
 export function createSlackPresenceApi(botToken: string): SlackPresenceApi {
@@ -53,6 +71,10 @@ export function createSlackPresenceApi(botToken: string): SlackPresenceApi {
         cursor = res.response_metadata?.next_cursor || undefined;
       } while (cursor);
       return members;
+    },
+    async isFlatImage(url) {
+      const bytes = await imageBytes(url);
+      return bytes != null && bytes < FLAT_IMAGE_MAX_BYTES;
     },
     async getPresence(userId) {
       try {
@@ -130,6 +152,13 @@ export async function syncWorkspacePresence(
     if (presence === 'active') result.active++;
 
     const previous = statusByUser.get(member.id);
+    // Only look at an avatar again when its URL changes.
+    const avatarFlat =
+      !member.image
+        ? false
+        : previous && previous.imageOriginal === member.image
+          ? previous.avatarFlat
+          : (await slack.isFlatImage?.(member.image)) ?? false;
     const open = previous?.activeSessionId ? openById.get(previous.activeSessionId) ?? null : null;
     const action = determineSessionAction({ newPresence: presence, openSession: open, now, maxGapMs });
 
@@ -167,6 +196,7 @@ export async function syncWorkspacePresence(
         realName: member.realName,
         displayName: member.displayName,
         imageOriginal: member.image,
+        avatarFlat,
         email: member.email,
         isGuest: member.isGuest,
         isMember: true,

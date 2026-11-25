@@ -6,8 +6,9 @@ const MIN = 60_000;
 // 4sa 12dk · 45dk · 2sa · <1dk · 0dk  (sa = saat, dk = dakika)
 export function durationTr(ms: number): string {
   if (ms <= 0) return '0dk';
-  if (ms < MIN) return '<1dk';
-  const totalMin = Math.floor(ms / MIN);
+  if (ms < MIN / 2) return '<1dk';
+  // Nearest minute, so a stretch shown as 19:23–19:38 reads 15dk, not 14dk.
+  const totalMin = Math.round(ms / MIN);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
   if (h === 0) return `${m}dk`;
@@ -30,7 +31,7 @@ export function durationSinceTr(ms: number): string {
 
 // Hours with zero-padded minutes, for tables: 4:12
 export function hoursMinutes(ms: number): string {
-  const totalMin = Math.max(0, Math.floor(ms / MIN));
+  const totalMin = Math.max(0, Math.round(ms / MIN));
   return `${Math.floor(totalMin / 60)}:${String(totalMin % 60).padStart(2, '0')}`;
 }
 

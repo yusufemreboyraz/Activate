@@ -10,7 +10,8 @@ describe('durationTr', () => {
     expect(durationTr(45 * MIN)).toBe('45dk');
   });
   it('shows <1dk for seconds and 0dk for nothing', () => {
-    expect(durationTr(30_000)).toBe('<1dk');
+    expect(durationTr(20_000)).toBe('<1dk');
+    expect(durationTr(14 * MIN + 40_000)).toBe('15dk');
     expect(durationTr(0)).toBe('0dk');
     expect(durationTr(-5)).toBe('0dk');
   });
