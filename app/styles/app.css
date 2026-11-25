@@ -48,6 +48,15 @@ body::before {
 :root:not([data-theme="sinyal"]) .logo-word { font-weight: 800; font-size: 23px; letter-spacing: -.045em; }
 :root[data-theme="sinyal"] .logo-word { font-weight: 700; font-size: 17px; letter-spacing: -.02em; }
 :root[data-theme="sinyal"] .logo-mark { width: 22px; height: 22px; }
+/* Afiş: the dot and the VATE sticker share the poster's pink. */
+:root:not([data-theme="sinyal"]) .logo-dot { fill: var(--now); }
+:root:not([data-theme="sinyal"]) .logo-word { display: inline-flex; align-items: center; }
+.logo-sticker {
+  display: inline-block; margin-left: 1px; padding: 2px 4px 0;
+  background: var(--now); color: var(--ink); transform: rotate(-5deg) translateY(-1px);
+  transition: transform var(--t) var(--ease);
+}
+.logo:hover .logo-sticker { transform: rotate(4deg) translateY(-2px) scale(1.06); }
 /* Afiş stamps the dot into the counter once; hovering presses it again. */
 :root:not([data-theme="sinyal"]) .logo-dot { animation: dot-stamp 420ms var(--ease) 120ms both; }
 :root:not([data-theme="sinyal"]) .logo:hover .logo-dot { animation: dot-stamp 360ms var(--ease); }

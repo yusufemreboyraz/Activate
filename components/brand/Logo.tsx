@@ -13,14 +13,16 @@ export function LogoMark({ className = 'logo-mark' }: { className?: string }) {
   );
 }
 
-// Afiş: mark + ACTIVATE in Syne. Sinyal: mark + activate with a blinking cursor.
-// The Afiş word is written in capitals in the source: CSS upper-casing under
-// lang="tr" would print "ACTİVATE".
+// Afiş: mark with a pink dot + ACTI and a pink tilted VATE sticker. Sinyal:
+// mark + activate with a blinking cursor. The Afiş word is written in capitals
+// in the source: CSS upper-casing under lang="tr" would print "ACTİVATE".
 export function Logo({ href = '/' }: { href?: string }) {
   return (
     <Link href={href} className="logo" aria-label="Activate, bugüne git">
       <LogoMark />
-      <span className="logo-word only-afis" aria-hidden="true">ACTIVATE</span>
+      <span className="logo-word only-afis" aria-hidden="true">
+        ACTI<span className="logo-sticker">VATE</span>
+      </span>
       <span className="logo-word only-sinyal" aria-hidden="true">
         activate<span className="cursor" />
       </span>

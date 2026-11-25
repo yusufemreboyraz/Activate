@@ -49,7 +49,7 @@ Pick colours from the tokens in `app/styles/tokens.css`, never from literals in 
 
 | Component | Afiş | Sinyal |
 |---|---|---|
-| Logo | mark (ring-bowl "a", lime presence dot in the counter; the dot stamps in once on load and on hover) + `ACTIVATE` in Syne, written in capitals in the source | same mark with a yellow dot + `activate▌` with blinking cursor |
+| Logo | mark (ring-bowl "a", pink dot in the counter; the dot stamps in once on load and on hover) + `ACTI` and a pink tilted `VATE` sticker, written in capitals in the source | same mark with a yellow dot + `activate▌` with blinking cursor |
 | Person | tile with hard shadow and a `→`; coloured while active, plain paper while away; avatar printed in multiply | one row: `●`, name, ASCII day bar, time |
 | Presence | rotated `● AKTİF` sticker (wobbles), grey `UZAKTA` sticker | `●` yellow / `○` dim + word |
 | Day strip (24h) | framed bar, ink blocks for active stretches, pink "now" line | one cell per hour (per 15 min on a person page): `·` none, `▒` part, `█` mostly active; hour ruler on the person page |
