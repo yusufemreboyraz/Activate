@@ -60,7 +60,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <Link className="back" href={`/?w=${wsId}`}><span className="arrow" aria-hidden="true">←</span> Bugüne dön</Link>
+      <Link className="back" href={`/?w=${wsId}`}><span className="arrow" aria-hidden="true">←</span> Tüm ekip</Link>
 
       <header className={`phead tone-${toneOf(userId)} is-${p.presence}`} style={{ ['--tile' as string]: `var(--tone-${toneOf(userId)})` }}>
         <Avatar name={p.name} src={p.image} />
@@ -86,7 +86,7 @@ export default async function PersonPage({ params, searchParams }: Props) {
           aria-label={`Sonraki gün, ${dayMonthTr(next)}`}
         >›</Link>
         <span className="daynav-spacer" />
-        {!day.isToday && <Link className="btn btn-ghost" href={base} scroll={false}>Bugüne dön</Link>}
+        {!day.isToday && <Link className="btn btn-ghost" href={base} scroll={false}>Bugünü aç</Link>}
         <DateJump value={date} max={today} base={base} />
       </nav>
 

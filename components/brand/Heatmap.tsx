@@ -1,9 +1,17 @@
 import Link from 'next/link';
+import { ScrollEnd } from '@/components/brand/ScrollEnd';
 import type { HeatmapDay } from '@/lib/activityService';
 import { dayMonthTr, durationTr, monthShortTr } from '@/lib/format';
 
 const HOUR = 3_600_000;
 const CHARS = ['·', '░', '▒', '▓', '█'];
+
+// Sinyal prints the whole hours of the day as a digit (· for none, + for 10 or more).
+function hoursChar(ms: number): string {
+  if (ms <= 0) return '·';
+  const h = Math.floor(ms / HOUR);
+  return h >= 10 ? '+' : String(h);
+}
 
 export function heatLevel(ms: number): number {
   if (ms <= 0) return 0;
@@ -43,7 +51,7 @@ export function Heatmap({
       <p className="sr-only">
         {days[0]!.date.slice(0, 4)} yılında {activeDays} gün aktif, toplam {durationTr(total)}.
       </p>
-      <div className="heat-wrap">
+      <ScrollEnd className="heat-wrap">
         <div className="heat" style={{ ['--weeks' as string]: weeks }} aria-hidden="true">
           {days.map((d, i) => {
             if (!d.date.endsWith('-01')) return null;
@@ -63,16 +71,16 @@ export function Heatmap({
             return future ? (
               <span key={d.date} className={cls} style={style} />
             ) : (
-              <Link key={d.date} href={hrefFor(d.date)} className={cls} style={style} data-c={CHARS[level]} title={label} tabIndex={-1} scroll={false} />
+              <Link key={d.date} href={hrefFor(d.date)} className={cls} style={style} data-c={hoursChar(d.totalActiveMs)} title={label} tabIndex={-1} scroll={false} />
             );
           })}
         </div>
-      </div>
+      </ScrollEnd>
       <div className="heat-legend" aria-hidden="true">
-        <span>az</span>
-        {[0, 1, 2, 3, 4].map((l) => <span key={l} className={`hc l${l}`} data-c={CHARS[l]} />)}
-        <span>çok</span>
-        <span style={{ marginLeft: 12 }}>· 1 kare = 1 gün</span>
+        <span className="only-afis">az</span>
+        {[0, 1, 2, 3, 4].map((l) => <span key={l} className={`hc l${l} only-afis`} data-c={CHARS[l]} />)}
+        <span className="only-afis">çok · 1 kare = 1 gün</span>
+        <span className="only-sinyal">her karakter bir gün: o gün aktif olunan tam saat (· = hiç, + = 10 ve üstü)</span>
       </div>
     </div>
   );

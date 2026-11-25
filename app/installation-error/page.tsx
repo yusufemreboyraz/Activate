@@ -21,7 +21,7 @@ export default async function InstallError({ searchParams }: { searchParams: Pro
     <main id="main" className="poster">
       <div className="poster-top"><Logo /></div>
       <div className="poster-main">
-        <h1 className="poster-title"><span className="row"><span className="stk">Bağlanamadı.</span></span></h1>
+        <h1 className="poster-title" style={{ ['--chars' as string]: 12 }}><span className="row"><span className="stk">Bağlanamadı.</span></span></h1>
         <div className="alert is-error" role="alert"><b>Slack workspace’i Activate’e bağlanmadı.</b><span>{message}</span></div>
         <div className="poster-actions">
           <a className="btn btn-pop" href="/api/slack/install">Tekrar dene</a>

@@ -2,7 +2,7 @@ import type { DaySession } from '@/lib/dashboard';
 import { durationTr } from '@/lib/format';
 
 const DAY = 1440;
-const CHARS = ['·', '░', '▒', '█'];
+const CHARS = ['·', '▒', '█'];
 
 function minuteLabel(min: number): string {
   const m = Math.max(0, Math.min(DAY, Math.round(min)));
@@ -86,7 +86,7 @@ export function DayStrip({
           <span className="cell">|</span>
           {cov.map((c, i) => {
             const future = nowBucket != null && i > nowBucket;
-            const level = c === 0 ? 0 : c < 0.34 ? 1 : c < 0.67 ? 2 : 3;
+            const level = c === 0 ? 0 : c < 0.5 ? 1 : 2;
             const isNow = nowBucket === i;
             return (
               <span key={i} className={`cell${isNow ? ' now' : level ? ' on' : ''}`}>

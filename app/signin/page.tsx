@@ -43,12 +43,11 @@ export default async function SignInPage({ searchParams }: Props) {
 
       <div className="poster-main">
         <ol className="boot only-sinyal" aria-hidden="true">
-          <li style={{ ['--i' as string]: 0 }}>activate</li>
-          <li style={{ ['--i' as string]: 1 }}>slack bağlantısı <span className="ok">hazır</span></li>
-          <li style={{ ['--i' as string]: 2 }}>giriş bekleniyor…</li>
+          <li style={{ ['--i' as string]: 0 }}>slack bağlantısı <span className="ok">hazır</span></li>
+          <li style={{ ['--i' as string]: 1 }}>giriş bekleniyor…</li>
         </ol>
 
-        <h1 className="poster-title">
+        <h1 className="poster-title" style={{ ['--chars' as string]: 8 }}>
           <span className="only-afis"><span className="row">Kim</span><span className="row"><span className="stk">burada?</span></span></span>
           <span className="only-sinyal"><span className="row">activate<span className="cursor" aria-hidden="true" /></span></span>
         </h1>

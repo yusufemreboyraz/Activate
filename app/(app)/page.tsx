@@ -41,7 +41,7 @@ export default async function TodayPage({ searchParams }: Props) {
   if (!wsId) {
     return (
       <section className="empty">
-        <h1 className="empty-big">Henüz bir ekibin yok.</h1>
+        <h1 className="empty-big" style={{ ['--chars' as string]: 8 }}>Henüz bir ekibin yok.</h1>
         <p>
           {viewer.email} adresi, Activate’e bağlı hiçbir Slack ekibinde üye olarak görünmüyor.
           {viewer.isAdmin
@@ -98,7 +98,7 @@ export default async function TodayPage({ searchParams }: Props) {
 
         {today.people.length === 0 ? (
           <div className="empty">
-            <p className="empty-big">İlk veri yolda.</p>
+            <p className="empty-big" style={{ ['--chars' as string]: 7 }}>İlk veri yolda.</p>
             <p>Workspace bağlandı ama Slack’ten henüz okuma gelmedi. İlk okuma 2 dakika içinde gelir; sayfa kendini yeniler.</p>
           </div>
         ) : (

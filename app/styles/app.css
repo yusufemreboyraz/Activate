@@ -197,7 +197,7 @@ body::before {
   font-size: clamp(52px, 9.4vw, 148px); line-height: .84; letter-spacing: -.055em;
   margin-left: -.04em; white-space: nowrap;
 }
-.hero-cap { font-size: clamp(16px, 1.6vw, 19px); font-weight: 600; max-width: 52ch; }
+.hero-cap { font-size: clamp(16px, 1.6vw, 19px); font-weight: 600; max-width: 52ch; text-wrap: pretty; }
 .hero-cap b { font-weight: 800; background: var(--active); padding: 0 4px; }
 .hero-num .of { opacity: .35; }
 .hero-num { margin-top: .12em; }
@@ -340,11 +340,11 @@ body::before {
 
 /* ───────────── Empty state ───────────── */
 
-.empty { display: grid; gap: 16px; justify-items: start; padding: clamp(24px, 6vw, 72px) 0; }
-.empty-big { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; font-size: clamp(44px, 9vw, 120px); line-height: .92; letter-spacing: -.055em; padding-bottom: .1em; max-width: 12ch; }
+.empty { display: grid; gap: 16px; justify-items: start; padding: clamp(24px, 6vw, 72px) 0; container-type: inline-size; }
+.empty-big { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; font-size: clamp(32px, calc(100cqi / (var(--chars, 9) * 1.12)), 120px); line-height: .92; letter-spacing: -.055em; padding-bottom: .1em; max-width: 14ch; }
 .empty p { max-width: 54ch; font-size: 16px; font-weight: 600; color: var(--ink-2); }
 .empty-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-:root[data-theme="sinyal"] .empty-big { font-weight: 700; text-transform: lowercase; font-size: clamp(32px, 6vw, 64px); letter-spacing: -.04em; }
+:root[data-theme="sinyal"] .empty-big { font-weight: 700; text-transform: lowercase; font-size: clamp(28px, calc(100cqi / (var(--chars, 9) * .9)), 64px); letter-spacing: -.04em; }
 :root[data-theme="sinyal"] .empty-big::before { content: "> "; color: var(--ink-3); }
 :root[data-theme="sinyal"] .empty p { font-weight: 400; font-size: 14px; }
 
@@ -441,8 +441,7 @@ body::before {
 :root[data-theme="sinyal"] .week .is-today .day::after { color: var(--active); }
 
 /* Year heatmap: one markup, two printings. */
-.heat-wrap { overflow-x: auto; padding-bottom: 8px; direction: rtl; } /* starts scrolled to the latest weeks */
-.heat-wrap > .heat { direction: ltr; }
+.heat-wrap { overflow-x: auto; padding-bottom: 8px; }
 .heat { display: grid; grid-template-columns: 26px repeat(var(--weeks, 53), 13px); grid-template-rows: 16px repeat(7, 13px); gap: 3px; width: max-content; }
 .heat .m { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); grid-row: 1; white-space: nowrap; }
 .heat .wd { font-size: 10px; font-weight: 700; color: var(--ink-3); grid-column: 1; align-self: center; text-transform: lowercase; }
@@ -479,17 +478,18 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
   position: relative; overflow: hidden;
 }
 .poster-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.poster-main { align-self: center; display: grid; gap: clamp(20px, 3vw, 32px); max-width: 1100px; }
+.poster-main { align-self: center; display: grid; gap: clamp(20px, 3vw, 32px); max-width: 1100px; container-type: inline-size; }
 .poster-title {
   font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
-  font-size: clamp(54px, 11.2vw, 188px); line-height: .8; letter-spacing: -.06em; margin-left: -.05em;
+  /* Sized from the longest word (--chars) so it never overflows its column. */
+  font-size: clamp(34px, calc(100cqi / (var(--chars, 8) * 1.12)), 188px); line-height: .8; letter-spacing: -.06em; margin-left: -.05em;
   padding-bottom: .14em;
 }
 .poster-title .row + .row { margin-top: .06em; }
 .poster-title .row { display: block; }
 .poster-title .stk { display: inline-block; background: var(--now); padding: 0 .06em; transform: rotate(-4deg); animation: drop-in 700ms var(--ease) 200ms both; }
 .poster-lead { font-size: clamp(17px, 2vw, 22px); font-weight: 700; max-width: 40ch; }
-.poster-lead em { font-style: normal; background: var(--active); padding: 0 4px; }
+.poster-lead em { font-style: normal; background: var(--active); padding: 0 4px; white-space: nowrap; }
 .poster-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
 .poster-fine { font-size: 13px; color: var(--ink-2); max-width: 60ch; font-weight: 600; }
 .poster-privacy { font-size: 15px; font-weight: 700; max-width: 56ch; display: flex; gap: 10px; align-items: baseline; }
@@ -498,7 +498,7 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
 :root[data-theme="sinyal"] .poster-privacy::before { content: "//"; color: var(--ink-3); }
 .poster-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .poster-foot > * { min-width: 0; }
-.poster .badge { position: absolute; right: clamp(16px, 6vw, 90px); top: clamp(90px, 16vh, 170px); width: clamp(110px, 14vw, 170px); aspect-ratio: 1; border-radius: 50%; background: var(--active); border: var(--rule); display: grid; place-items: center; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: clamp(13px, 1.5vw, 17px); line-height: 1; text-transform: uppercase; letter-spacing: -.02em; animation: sway 5s ease-in-out infinite; box-shadow: var(--shadow); }
+.poster .badge { position: absolute; right: clamp(16px, 5vw, 80px); bottom: clamp(70px, 12vh, 140px); width: clamp(110px, 14vw, 170px); aspect-ratio: 1; border-radius: 50%; background: var(--active); border: var(--rule); display: grid; place-items: center; text-align: center; font-family: var(--font-display); font-weight: 800; font-size: clamp(13px, 1.5vw, 17px); line-height: 1; text-transform: uppercase; letter-spacing: -.02em; animation: sway 5s ease-in-out infinite; box-shadow: var(--shadow); }
 @keyframes sway { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(10deg) scale(1.04); } }
 .alert { border: var(--rule); background: var(--bg); box-shadow: var(--shadow); padding: 12px 16px; display: grid; gap: 4px; max-width: 62ch; }
 .alert b { font-weight: 800; }
@@ -508,7 +508,7 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
 .boot li { animation: typein 500ms steps(20) both; animation-delay: calc(var(--i, 0) * 260ms); }
 .boot .ok { color: var(--active); }
 
-:root[data-theme="sinyal"] .poster-title { font-weight: 700; text-transform: lowercase; font-size: clamp(48px, 11vw, 160px); letter-spacing: -.07em; line-height: .86; }
+:root[data-theme="sinyal"] .poster-title { font-weight: 700; text-transform: lowercase; font-size: clamp(34px, calc(100cqi / (var(--chars, 8) * .68)), 160px); letter-spacing: -.07em; line-height: .86; }
 :root[data-theme="sinyal"] .poster-title .stk { background: none; transform: none; animation: none; }
 :root[data-theme="sinyal"] .poster-lead { font-weight: 400; font-size: 16px; color: var(--ink-2); }
 :root[data-theme="sinyal"] .poster-lead em { background: none; color: var(--active); }
@@ -547,8 +547,6 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
   .hero-num { font-size: 11.4vw; white-space: normal; }
   :root[data-theme="sinyal"] .hero-num { font-size: 13vw; }
   .poster .badge { display: none; }
-  .poster-title { font-size: 13vw; }
-  :root[data-theme="sinyal"] .poster-title { font-size: 15vw; }
   .phead { grid-template-columns: 1fr; }
   .phead .avatar { grid-row: auto; }
   .daynav-spacer { display: none; }
