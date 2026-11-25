@@ -14,6 +14,8 @@ export interface SlackMember {
   statusEmoji: string;
   statusExpiration: number;
   image: string;
+  email: string | null; // needs the users:read.email scope
+  isGuest: boolean;
 }
 
 export interface SlackPresenceApi {
@@ -42,6 +44,8 @@ export function createSlackPresenceApi(botToken: string): SlackPresenceApi {
             statusEmoji: p.status_emoji ?? '',
             statusExpiration: p.status_expiration ?? 0,
             image: p.image_original || p.image_512 || p.image_192 || '',
+            email: p.email ? p.email.toLowerCase() : null,
+            isGuest: Boolean(m.is_restricted || m.is_ultra_restricted),
           });
         }
         cursor = res.response_metadata?.next_cursor || undefined;
@@ -161,6 +165,9 @@ export async function syncWorkspacePresence(
         realName: member.realName,
         displayName: member.displayName,
         imageOriginal: member.image,
+        email: member.email,
+        isGuest: member.isGuest,
+        isMember: true,
         updatedAt: now,
       };
       await tx.userStatus.upsert({
@@ -171,11 +178,12 @@ export async function syncWorkspacePresence(
     });
   }
 
-  // Members that left the workspace (or were deactivated) keep no open session.
+  // Members that left the workspace (or were deactivated) lose dashboard
+  // access and keep no open session.
   const memberIds = new Set(members.map((m) => m.id));
   for (const status of statuses) {
-    if (memberIds.has(status.userId) || !status.activeSessionId) continue;
-    const open = openById.get(status.activeSessionId);
+    if (memberIds.has(status.userId) || (!status.isMember && !status.activeSessionId)) continue;
+    const open = status.activeSessionId ? openById.get(status.activeSessionId) : undefined;
     await db.$transaction(async (tx) => {
       if (open) {
         await tx.activitySession.update({
@@ -185,7 +193,7 @@ export async function syncWorkspacePresence(
       }
       await tx.userStatus.update({
         where: { userId: status.userId },
-        data: { presence: 'away', activeSessionId: null, updatedAt: now },
+        data: { presence: 'away', activeSessionId: null, isMember: false, updatedAt: now },
       });
     });
     result.closedForMissingMembers++;

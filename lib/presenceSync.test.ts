@@ -12,6 +12,8 @@ const member = (id: string, name = id): SlackMember => ({
   statusEmoji: '',
   statusExpiration: 0,
   image: '',
+  email: `${id.toLowerCase()}@example.com`,
+  isGuest: false,
 });
 
 function fakeSlack(members: SlackMember[], presence: Record<string, 'active' | 'away' | null>): SlackPresenceApi {
@@ -102,6 +104,28 @@ describe('syncWorkspacePresence', () => {
     const u2 = await prisma.userStatus.findUniqueOrThrow({ where: { userId: 'U2' } });
     expect(u2.presence).toBe('away');
     expect(u2.activeSessionId).toBeNull();
+  });
+
+  it('stores the email lowercased and the guest flag', async () => {
+    const guest = { ...member('U9'), email: 'Guest@Example.com'.toLowerCase(), isGuest: true };
+    await syncWorkspacePresence(prisma, WS, fakeSlack([guest], { U9: 'away' }), { now: at('2026-03-10T09:00:00Z') });
+    const status = await prisma.userStatus.findUniqueOrThrow({ where: { userId: 'U9' } });
+    expect(status).toMatchObject({ email: 'guest@example.com', isGuest: true, isMember: true });
+  });
+
+  it('revokes membership of someone who left, even without an open session', async () => {
+    await syncWorkspacePresence(prisma, WS, fakeSlack([member('U1'), member('U2')], { U1: 'away', U2: 'away' }), {
+      now: at('2026-03-10T09:00:00Z'),
+    });
+    await syncWorkspacePresence(prisma, WS, fakeSlack([member('U1')], { U1: 'away' }), { now: at('2026-03-10T09:02:00Z') });
+    const u2 = await prisma.userStatus.findUniqueOrThrow({ where: { userId: 'U2' } });
+    expect(u2.isMember).toBe(false);
+
+    // Coming back restores it.
+    await syncWorkspacePresence(prisma, WS, fakeSlack([member('U1'), member('U2')], { U1: 'away', U2: 'away' }), {
+      now: at('2026-03-10T09:04:00Z'),
+    });
+    expect((await prisma.userStatus.findUniqueOrThrow({ where: { userId: 'U2' } })).isMember).toBe(true);
   });
 
   it('stores profile fields from Slack', async () => {

@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/auth';
+import { requireWorkspaceAccess } from '@/auth';
 import { calculateActivityForYear } from '@/lib/activityService';
 
 export async function GET(request: NextRequest) {
-  const denied = await requireAdmin();
-  if (denied) return denied;
-
   const userId = request.nextUrl.searchParams.get('userId');
   const workspaceId = request.nextUrl.searchParams.get('workspaceId');
   const yearParam = request.nextUrl.searchParams.get('year');
@@ -16,6 +13,9 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const access = await requireWorkspaceAccess(workspaceId);
+  if (access instanceof Response) return access;
 
   const year = Number(yearParam);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
