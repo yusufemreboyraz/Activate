@@ -1,26 +1,41 @@
 {
-    "display_information": {
-        "name": "Activate"
+  "display_information": {
+    "name": "Activate",
+    "description": "Slack'te aktif görünme süresini takip eder",
+    "background_color": "#1d1d1d"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Activate",
+      "always_online": false
     },
-    "features": {
-        "bot_user": {
-            "display_name": "Activate",
-            "always_online": false
-        }
+    "slash_commands": [
+      {
+        "command": "/activate",
+        "url": "https://activate-75469006922.europe-west1.run.app/api/slack/webhook",
+        "description": "Bugünkü ve bu haftaki aktif süreni gösterir",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://activate-75469006922.europe-west1.run.app/api/auth/slack/callback",
+      "https://activate-75469006922.europe-west1.run.app/api/auth/callback/slack",
+      "http://localhost:3000/api/auth/slack/callback",
+      "http://localhost:3000/api/auth/callback/slack"
+    ],
+    "scopes": {
+      "user": ["openid", "email", "profile"],
+      "bot": ["users:read", "commands"]
     },
-    "oauth_config": {
-        "scopes": {
-            "user": [
-                "users:read"
-            ],
-            "bot": [
-                "users:read"
-            ]
-        }
-    },
-    "settings": {
-        "org_deploy_enabled": false,
-        "socket_mode_enabled": false,
-        "token_rotation_enabled": false
-    }
-} 
+    "pkce_enabled": false
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "is_mcp_enabled": false,
+    "token_rotation_enabled": false,
+    "app_level_token_rotation_enabled": false
+  }
+}
