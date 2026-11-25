@@ -20,7 +20,7 @@ datasource db {
 model Workspace {
   id               String   @id // Slack team.id
   name             String
-  botToken         String
+  botToken         String // AES-256-GCM encrypted, see lib/tokenCrypto.ts
   appId            String?
   botUserId        String?
   scopes           String?
@@ -66,5 +66,15 @@ model ActivitySession {
   lastSeen    DateTime
 
   @@index([userId, workspaceId, startTime])
+  @@index([workspaceId, startTime])
   @@map("activity_sessions")
+}
+
+// Lease used by the presence cron so overlapping scheduler runs cannot both
+// write sessions (see withCronLease in lib/presenceSync.ts).
+model CronLock {
+  name        String   @id
+  lockedUntil DateTime @map("locked_until")
+
+  @@map("cron_locks")
 }

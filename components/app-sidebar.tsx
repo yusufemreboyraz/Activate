@@ -2,10 +2,8 @@
 
 import * as React from "react"
 import {
+  IconBrandSlack,
   IconDashboard,
-  IconHelp,
-  IconSearch,
-  IconSettings,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -29,11 +27,6 @@ import {
 import { useWorkspaceStore } from "@/stores/workspaceStore"
 
 const data = {
-  user: {
-    name: "CMJ",
-    email: "0xboyraz@proton.me",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -43,19 +36,9 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
+      title: "Slack workspace bağla",
+      url: "/api/slack/install",
+      icon: IconBrandSlack,
     },
   ],
 }
@@ -106,7 +89,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   )

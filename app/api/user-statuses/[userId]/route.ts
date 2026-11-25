@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/auth';
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { userId } = await params;
 
   const status = await prisma.userStatus.findUnique({ where: { userId } });

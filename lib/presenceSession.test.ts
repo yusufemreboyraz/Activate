@@ -1,58 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import { determineSessionAction } from './presenceSession';
 
+const now = new Date('2026-03-10T10:00:00.000Z');
+const minutesAgo = (m: number) => new Date(now.getTime() - m * 60_000);
+
 describe('determineSessionAction', () => {
-  it('starts a new session when a user goes away -> active', () => {
+  it('starts a session when an active user has none open', () => {
+    expect(determineSessionAction({ newPresence: 'active', openSession: null, now })).toEqual({ type: 'start' });
+  });
+
+  it('does nothing for an away user with no open session', () => {
+    expect(determineSessionAction({ newPresence: 'away', openSession: null, now })).toEqual({ type: 'none' });
+  });
+
+  it('continues a recent open session while the user stays active', () => {
     const action = determineSessionAction({
       newPresence: 'active',
-      lastPresence: 'away',
-      activeSessionId: null,
+      openSession: { id: 's1', lastSeen: minutesAgo(2) },
+      now,
     });
-    expect(action).toEqual({ type: 'start' });
+    expect(action).toEqual({ type: 'continue', sessionId: 's1' });
   });
 
-  it('continues the existing session when a user stays active', () => {
+  it('ends the session now when the user goes away after a recent reading', () => {
+    const action = determineSessionAction({
+      newPresence: 'away',
+      openSession: { id: 's1', lastSeen: minutesAgo(2) },
+      now,
+    });
+    expect(action).toEqual({ type: 'end', sessionId: 's1', endAt: now });
+  });
+
+  it('closes at lastSeen and restarts when readings stopped longer than the gap', () => {
+    const lastSeen = minutesAgo(45);
+    const action = determineSessionAction({ newPresence: 'active', openSession: { id: 's1', lastSeen }, now });
+    expect(action).toEqual({ type: 'restart', sessionId: 's1', endAt: lastSeen });
+  });
+
+  it('ends at lastSeen (not now) when the user is away after a long gap', () => {
+    const lastSeen = minutesAgo(45);
+    const action = determineSessionAction({ newPresence: 'away', openSession: { id: 's1', lastSeen }, now });
+    expect(action).toEqual({ type: 'end', sessionId: 's1', endAt: lastSeen });
+  });
+
+  it('respects a custom maxGapMs', () => {
     const action = determineSessionAction({
       newPresence: 'active',
-      lastPresence: 'active',
-      activeSessionId: 'session-1',
+      openSession: { id: 's1', lastSeen: minutesAgo(4) },
+      now,
+      maxGapMs: 3 * 60_000,
     });
-    expect(action).toEqual({ type: 'continue', sessionId: 'session-1' });
-  });
-
-  it('starts a new session if active but no session id was recorded (edge case)', () => {
-    const action = determineSessionAction({
-      newPresence: 'active',
-      lastPresence: 'active',
-      activeSessionId: null,
-    });
-    expect(action).toEqual({ type: 'start' });
-  });
-
-  it('ends the session when a user goes active -> away', () => {
-    const action = determineSessionAction({
-      newPresence: 'away',
-      lastPresence: 'active',
-      activeSessionId: 'session-1',
-    });
-    expect(action).toEqual({ type: 'end', sessionId: 'session-1' });
-  });
-
-  it('does nothing when going active -> away with no tracked session', () => {
-    const action = determineSessionAction({
-      newPresence: 'away',
-      lastPresence: 'active',
-      activeSessionId: null,
-    });
-    expect(action).toEqual({ type: 'none' });
-  });
-
-  it('does nothing when staying away', () => {
-    const action = determineSessionAction({
-      newPresence: 'away',
-      lastPresence: 'away',
-      activeSessionId: null,
-    });
-    expect(action).toEqual({ type: 'none' });
+    expect(action.type).toBe('restart');
   });
 });
