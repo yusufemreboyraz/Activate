@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySlackSignature } from '@/lib/slackSignature';
-import { calculateActivityForRange } from '@/lib/activityService';
+import { getPersonDay } from '@/lib/dashboard';
+import { createLoginLink } from '@/lib/loginLink';
 import { durationTr } from '@/lib/format';
-import { dateStringInZone, startOfWeek } from '@/lib/time';
+import { dateStringInZone } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,22 +55,44 @@ export async function POST(request: Request) {
     return ephemeral('Bu Slack workspace’i henüz Activate’e bağlı değil.');
   }
 
-  const today = dateStringInZone(new Date());
-  const weekStart = startOfWeek(today);
-  const [todayActivity, weekActivity, status] = await Promise.all([
-    calculateActivityForRange(userId, teamId, today, today),
-    calculateActivityForRange(userId, teamId, weekStart, today),
-    prisma.userStatus.findUnique({ where: { userId }, select: { presence: true } }),
+  const now = new Date();
+  const today = dateStringInZone(now);
+  const [day, status] = await Promise.all([
+    getPersonDay(userId, teamId, today, now),
+    prisma.userStatus.findUnique({ where: { userId }, select: { email: true, isGuest: true, isMember: true, workspaceId: true } }),
   ]);
 
-  if (!status) {
+  if (!day || !status || status.workspaceId !== teamId) {
     return ephemeral('Henüz senin için kayıt yok. Activate seni 2 dakika içinde görmeye başlar.');
   }
 
-  const lines = [
-    `*Bugün* ${durationTr(todayActivity.totalActiveMs)} · ${todayActivity.activityChanges} oturum`,
-    `*Bu hafta* ${durationTr(weekActivity.totalActiveMs)}`,
-    `_Slack’te aktif göründüğün süre. 2 dakikada bir okunur; çalışma süresi değildir._`,
-  ];
-  return ephemeral(lines.join('\n'));
+  const summary = [
+    `*Bugün* ${durationTr(day.totalMs)} · ${day.sessions.length} aktif aralık`,
+    `*Bu hafta* ${durationTr(day.weekTotalMs)}`,
+  ].join('\n');
+  const fine = 'Slack’te aktif göründüğün süre; 2 dakikada bir okunur, çalışma süresi değildir.';
+
+  // A one-time sign-in link, so the dashboard opens on a phone without a
+  // Slack web login. Guests and people without a synced email get none.
+  const base = process.env.APP_BASE_URL?.replace(/\/+$/, '');
+  if (!base || !status.email || status.isGuest || !status.isMember) {
+    return ephemeral(`${summary}\n_${fine}_`);
+  }
+  const token = await createLoginLink(status.email, userId, now);
+  const url = `${base}/signin/link?t=${token}`;
+
+  return NextResponse.json({
+    response_type: 'ephemeral',
+    text: `${summary}\nActivate’e gir: ${url}`,
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: summary } },
+      {
+        type: 'actions',
+        elements: [
+          { type: 'button', action_id: 'open_activate', style: 'primary', text: { type: 'plain_text', text: 'Activate’e gir' }, url },
+        ],
+      },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: `Bağlantı yalnızca sana görünür, 10 dakika geçerli ve tek kullanımlık. ${fine}` }] },
+    ],
+  });
 }
