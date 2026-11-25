@@ -11,6 +11,12 @@ COPY prisma.config.ts ./
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN pnpm install --frozen-lockfile
 
+# Runs pending Prisma migrations, e.g. as a Cloud Run job:
+#   docker build --target migrate -t activate-migrate .
+FROM deps AS migrate
+COPY prisma ./prisma
+CMD ["pnpm", "prisma", "migrate", "deploy"]
+
 FROM node:22-alpine AS build
 WORKDIR /app
 RUN corepack enable
@@ -27,6 +33,7 @@ RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 COPY --from=build --chown=app:app /app/public ./public
+COPY --from=build --chown=app:app /app/prisma/supabase-root-ca-2021.crt ./certs/supabase-root-ca-2021.crt
 USER app
 EXPOSE 8080
 CMD ["node", "server.js"]

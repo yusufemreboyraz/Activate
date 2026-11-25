@@ -49,7 +49,10 @@ export const authConfig = {
       const p = (profile ?? {}) as Record<string, unknown>;
       const email = typeof p.email === 'string' ? p.email : null;
       if (p.email_verified === false) return false;
-      return isAdminEmail(email) && isAllowedTeam(p['https://slack.com/team_id']);
+      const allowed = isAdminEmail(email) && isAllowedTeam(p['https://slack.com/team_id']);
+      // An audit line for refused sign-ins, so an admin can see who tried.
+      if (!allowed) console.warn(`Dashboard sign-in refused for ${email ?? 'unknown email'}`);
+      return allowed;
     },
     authorized({ auth, request: { nextUrl } }) {
       const path = nextUrl.pathname;

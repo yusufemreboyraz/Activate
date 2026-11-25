@@ -7,7 +7,7 @@
 export const DEFAULT_TIMEZONE = 'Europe/Istanbul';
 
 export function appTimeZone(): string {
-  return process.env.APP_TIMEZONE || process.env.NEXT_PUBLIC_APP_TIMEZONE || DEFAULT_TIMEZONE;
+  return process.env.APP_TIMEZONE || DEFAULT_TIMEZONE;
 }
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
