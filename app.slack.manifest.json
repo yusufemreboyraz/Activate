@@ -21,13 +21,19 @@
   "oauth_config": {
     "redirect_urls": [
       "https://activate-75469006922.europe-west1.run.app/api/auth/slack/callback",
-      "https://activate-75469006922.europe-west1.run.app/api/auth/callback/slack",
-      "http://localhost:3000/api/auth/slack/callback",
-      "http://localhost:3000/api/auth/callback/slack"
+      "https://activate-75469006922.europe-west1.run.app/api/auth/callback/slack"
     ],
     "scopes": {
-      "user": ["openid", "email", "profile"],
-      "bot": ["users:read", "commands"]
+      "user": [
+        "openid",
+        "email",
+        "profile"
+      ],
+      "bot": [
+        "users:read",
+        "users:read.email",
+        "commands"
+      ]
     },
     "pkce_enabled": false
   },

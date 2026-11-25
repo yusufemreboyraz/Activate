@@ -49,9 +49,17 @@ model UserStatus {
   realName         String?
   displayName      String?
   imageOriginal    String?
+  // Slack profile email, lowercased. Dashboard access is granted by matching
+  // the signed-in Slack email against these (see lib/access.ts).
+  email            String?
+  // Single- or multi-channel guest: tracked, but no dashboard access.
+  isGuest          Boolean   @default(false)
+  // False once the member no longer appears in users.list (left/deactivated).
+  isMember         Boolean   @default(true)
   updatedAt        DateTime
 
   @@index([workspaceId])
+  @@index([email])
   @@map("user_statuses")
 }
 

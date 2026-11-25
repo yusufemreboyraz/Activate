@@ -34,7 +34,8 @@ const data = {
       icon: IconDashboard,
     },
   ],
-  navSecondary: [
+  // Shown to app admins only (ADMIN_EMAILS); the route checks it as well.
+  adminNav: [
     {
       title: "Slack workspace bağla",
       url: "/api/slack/install",
@@ -48,11 +49,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const selectedWorkspaceId = useWorkspaceStore((state) => state.selectedWorkspaceId)
   const setSelectedWorkspaceId = useWorkspaceStore((state) => state.setSelectedWorkspaceId)
   const isLoadingWorkspaces = useWorkspaceStore((state) => state.isLoadingWorkspaces)
+  const [isAdmin, setIsAdmin] = React.useState(false)
+
+  React.useEffect(() => {
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((me) => setIsAdmin(Boolean(me?.isAdmin)))
+      .catch(() => setIsAdmin(false))
+  }, [])
 
   const selectedWorkspaceName = React.useMemo(() => {
     if (isLoadingWorkspaces) return "Yükleniyor...";
     if (!selectedWorkspaceId && workspaces.length > 0) return "Çalışma Alanı Seçin...";
-    if (!selectedWorkspaceId && workspaces.length === 0 && !isLoadingWorkspaces) return "Çalışma Alanı Yok";
+    if (!selectedWorkspaceId && workspaces.length === 0 && !isLoadingWorkspaces) return "Erişebildiğin workspace yok";
     const workspace = workspaces.find(ws => ws.workspace_id === selectedWorkspaceId);
     return workspace ? workspace.workspace_name : "Çalışma Alanı Seçin...";
   }, [selectedWorkspaceId, workspaces, isLoadingWorkspaces]);
@@ -73,7 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SelectContent>
             {workspaces.length === 0 && !isLoadingWorkspaces && (
               <div className="p-2 text-sm text-muted-foreground text-center">
-                Aktif çalışma alanı bulunamadı.
+                Slack e-postan bağlı bir workspace&apos;in üyeleri arasında görünmüyor.
               </div>
             )}
             {workspaces.map((workspace) => (
@@ -86,7 +95,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        {isAdmin && <NavSecondary items={data.adminNav} className="mt-auto" />}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
