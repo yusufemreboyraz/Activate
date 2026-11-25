@@ -1,83 +1,68 @@
 import type { NextAuthConfig } from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
+import Slack from 'next-auth/providers/slack';
+
+// Edge-safe auth configuration (used by middleware.ts and auth.ts).
+//
+// Dashboard sign-in is "Sign in with Slack". Only people whose Slack email is
+// listed in ADMIN_EMAILS (comma-separated) may get in; when SLACK_ALLOWED_TEAM_IDS
+// is set, they must also sign in from one of those Slack workspaces.
+
+const list = (value: string | undefined) =>
+  (value ?? '')
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return list(process.env.ADMIN_EMAILS).includes(email.toLowerCase());
+}
+
+function isAllowedTeam(teamId: unknown): boolean {
+  const allowed = list(process.env.SLACK_ALLOWED_TEAM_IDS);
+  if (allowed.length === 0) return true;
+  return typeof teamId === 'string' && allowed.includes(teamId.toLowerCase());
+}
+
+// Paths reachable without a dashboard session. Each of these authenticates
+// its own callers (Slack request signatures, the cron secret, OAuth state).
+const PUBLIC_PREFIXES = [
+  '/api/auth/', // NextAuth itself; /api/auth/slack/callback checks the session on its own
+  '/api/cron/',
+  '/api/slack/webhook',
+  '/api/health',
+  '/installation-success',
+  '/installation-error',
+];
 
 export const authConfig = {
-  // pages: {
-  //   signIn: '/login', // Opsiyonel: Özel bir giriş sayfası isterseniz. Şimdilik Auth.js'in varsayılanını kullanabiliriz.
-  // },
+  trustHost: true,
+  session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 },
   providers: [
-    Credentials({
-      // Kullanıcıdan alınacak alanları tanımlayabilirsiniz (formda görünür)
-      credentials: {
-        email: { label: "Email", type: "email", placeholder: "test@example.com" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        const expectedEmail = process.env.AUTH_USERNAME; // AUTH_USERNAME'i e-posta olarak düşünelim
-        const expectedPassword = process.env.AUTH_PASSWORD;
-
-        if (!credentials) return null;
-
-        // Auth.js varsayılan formu 'email' ve 'password' gönderir
-        const { email, password } = credentials as { email?: unknown; password?: unknown };
-
-        if (typeof email !== 'string' || typeof password !== 'string') {
-            console.error("Email or Password are not strings", { email, password });
-            return null;
-        }
-
-        if (email === expectedEmail && password === expectedPassword) {
-          // Başarılı giriş durumunda bir kullanıcı objesi döndürün.
-          // Bu obje session'da saklanacak.
-          return { id: "1", name: email.split('@')[0] || email, email: email }; // name olarak email'in @ öncesi kısmı veya direkt email
-        } else {
-          // Başarısız giriş
-          console.log('Invalid credentials', { email });
-          return null;
-        }
-      },
+    Slack({
+      clientId: process.env.SLACK_CLIENT_ID,
+      clientSecret: process.env.SLACK_CLIENT_SECRET,
     }),
   ],
   callbacks: {
-    async authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user; // Kullanıcı giriş yapmış mı? (session var mı?)
-      const isOnDashboard = nextUrl.pathname.startsWith('/'); // Veya korunmasını istediğiniz ana yol
-      const isAuthRoute = nextUrl.pathname.startsWith('/api/auth'); // Auth.js'in kendi yolları
-      const isCronJob = nextUrl.pathname.startsWith('/api/cron/check-presence'); // Cron job endpoint'i
-      const isSlackWebhook = nextUrl.pathname.startsWith('/api/slack/webhook'); // Slack Webhook endpoint'i
-      const isInstallationStatusPage = nextUrl.pathname.startsWith('/installation-success') || nextUrl.pathname.startsWith('/installation-error'); // Yeni eklenen kurulum durum sayfaları
-      const isPublicAsset = nextUrl.pathname.includes('.') // Genel statik varlıkları dışarıda bırakmak için basit bir kontrol
-                          || nextUrl.pathname.startsWith('/_next');
+    async signIn({ profile }) {
+      const p = (profile ?? {}) as Record<string, unknown>;
+      const email = typeof p.email === 'string' ? p.email : null;
+      if (p.email_verified === false) return false;
+      return isAdminEmail(email) && isAllowedTeam(p['https://slack.com/team_id']);
+    },
+    authorized({ auth, request: { nextUrl } }) {
+      const path = nextUrl.pathname;
+      if (PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix))) return true;
 
-      if (isCronJob || isAuthRoute || isPublicAsset || isSlackWebhook || isInstallationStatusPage) { // Kurulum durum sayfalarını da ekle
-        return true; // Auth yollarına, genel varlıklara, cron job'a, Slack webhook'a ve kurulum durum sayfalarına her zaman izin ver
-      }
+      // Re-checked on every request so removing someone from ADMIN_EMAILS
+      // takes effect without waiting for their session to expire.
+      if (auth?.user && isAdminEmail(auth.user.email)) return true;
 
-      if (isOnDashboard) {
-        if (isLoggedIn) return true; // Eğer dashboard'da ve giriş yapmışsa, izin ver
-        return false; // Giriş yapmamışsa, giriş sayfasına yönlendir (Auth.js bunu otomatik yapar)
-      } else if (isLoggedIn) {
-        // Eğer giriş yapmışsa ve zaten /login gibi bir sayfadaysa, ana sayfaya yönlendirebiliriz (opsiyonel)
-        // return Response.redirect(new URL('/', nextUrl));
-        return true;
+      if (path.startsWith('/api/')) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
-      // Diğer tüm durumlar için (örneğin, Auth.js'in kendi API yolları /api/auth/*) izin ver
-      return true;
+      return false; // redirect to the sign-in page
     },
   },
-  // session: { strategy: "jwt" }, // Credentials provider için JWT varsayılandır.
-  // callbacks: { // İhtiyaç duyarsanız callback'leri burada tanımlayabilirsiniz.
-  //   async jwt({ token, user }) {
-  //     if (user) {
-  //       token.id = user.id;
-  //     }
-  //     return token;
-  //   },
-  //   async session({ session, token }) {
-  //     if (session.user && token.id) {
-  //       (session.user as any).id = token.id;
-  //     }
-  //     return session;
-  //   },
-  // },
-} satisfies NextAuthConfig; 
+} satisfies NextAuthConfig;

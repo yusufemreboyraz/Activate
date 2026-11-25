@@ -24,8 +24,17 @@ function ErrorDisplay({ error }: { error: string | null }) {
       case 'oauth_exception':
         errorMessage = "OAuth işlemi sırasında beklenmedik bir sunucu hatası oluştu.";
         break;
+      case 'invalid_state':
+        errorMessage = "Kurulum isteğinin süresi doldu veya başka bir tarayıcıdan geldi. Dashboard'dan tekrar başlatın.";
+        break;
+      case 'not_signed_in':
+        errorMessage = "Kurulumu tamamlamak için önce dashboard'a Slack ile giriş yapın.";
+        break;
+      case 'team_not_allowed':
+        errorMessage = "Bu Slack workspace'i Activate'e bağlamaya izin verilmiyor.";
+        break;
       default:
-        errorMessage = `Detay: ${error}`;
+        errorMessage = "Kurulum sırasında beklenmedik bir hata oluştu.";
     }
   }
 
