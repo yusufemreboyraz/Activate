@@ -35,7 +35,7 @@ describe('authorized callback', () => {
     const res = call('/users/U1?x=1') as Response;
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe(
-      'https://activate.example/api/auth/signin?callbackUrl=' + encodeURIComponent('https://activate.example/users/U1?x=1')
+      'https://activate.example/signin?callbackUrl=' + encodeURIComponent('https://activate.example/users/U1?x=1')
     );
     delete process.env.APP_BASE_URL;
   });

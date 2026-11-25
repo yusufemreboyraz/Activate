@@ -43,7 +43,9 @@ export function createSlackPresenceApi(botToken: string): SlackPresenceApi {
             statusText: p.status_text ?? '',
             statusEmoji: p.status_emoji ?? '',
             statusExpiration: p.status_expiration ?? 0,
-            image: p.image_original || p.image_512 || p.image_192 || '',
+            // Slack's generated default avatar is a flat colour square; only a
+            // photo the person uploaded is worth printing, otherwise initials show.
+            image: p.is_custom_image ? p.image_original || p.image_512 || p.image_192 || '' : '',
             email: p.email ? p.email.toLowerCase() : null,
             isGuest: Boolean(m.is_restricted || m.is_ultra_restricted),
           });

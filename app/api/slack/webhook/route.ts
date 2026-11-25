@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifySlackSignature } from '@/lib/slackSignature';
 import { calculateActivityForRange } from '@/lib/activityService';
-import { formatDuration } from '@/lib/activityUtils';
+import { durationTr } from '@/lib/format';
 import { dateStringInZone, startOfWeek } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
   const workspace = await prisma.workspace.findUnique({ where: { id: teamId }, select: { status: true } });
   if (!workspace || workspace.status !== 'active') {
-    return ephemeral('Bu Slack workspace henüz Activate\'e bağlı değil.');
+    return ephemeral('Bu Slack workspace’i henüz Activate’e bağlı değil.');
   }
 
   const today = dateStringInZone(new Date());
@@ -63,13 +63,13 @@ export async function POST(request: Request) {
   ]);
 
   if (!status) {
-    return ephemeral('Henüz senin için kayıt yok. Activate birkaç dakika içinde seni görmeye başlar.');
+    return ephemeral('Henüz senin için kayıt yok. Activate seni 2 dakika içinde görmeye başlar.');
   }
 
   const lines = [
-    `*Bugün:* ${formatDuration(todayActivity.totalActiveMs)} aktif (${todayActivity.activityChanges} oturum)`,
-    `*Bu hafta:* ${formatDuration(weekActivity.totalActiveMs)} aktif`,
-    `_Slack'te "aktif" göründüğün süre, 2 dakikalık aralıklarla ölçülür._`,
+    `*Bugün* ${durationTr(todayActivity.totalActiveMs)} · ${todayActivity.activityChanges} oturum`,
+    `*Bu hafta* ${durationTr(weekActivity.totalActiveMs)}`,
+    `_Slack’te aktif göründüğün süre. 2 dakikada bir okunur; çalışma süresi değildir._`,
   ];
   return ephemeral(lines.join('\n'));
 }
