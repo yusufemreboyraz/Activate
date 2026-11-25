@@ -9,5 +9,5 @@ export const { auth: middleware } = NextAuth(authConfig);
 // is decided in auth.config.ts (authorized callback), not by guessing from the
 // path's shape.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)'],
 };

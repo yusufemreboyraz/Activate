@@ -26,6 +26,7 @@ const PUBLIC_PREFIXES = [
   '/api/cron/',
   '/api/slack/webhook',
   '/api/health',
+  '/signin',
   '/installation-success',
   '/installation-error',
 ];
@@ -33,6 +34,7 @@ const PUBLIC_PREFIXES = [
 export const authConfig = {
   trustHost: true,
   session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 },
+  pages: { signIn: '/signin', error: '/signin' },
   providers: [
     Slack({
       clientId: process.env.SLACK_CLIENT_ID,
@@ -56,7 +58,7 @@ export const authConfig = {
       // the standalone server sees its own bind address (0.0.0.0:8080).
       const base = (process.env.APP_BASE_URL ?? nextUrl.origin).replace(/\/+$/, '');
       const callbackUrl = `${base}${path}${nextUrl.search}`;
-      return Response.redirect(`${base}/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`, 302);
+      return Response.redirect(`${base}/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`, 302);
     },
   },
 } satisfies NextAuthConfig;

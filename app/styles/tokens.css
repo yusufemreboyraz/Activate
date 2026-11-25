@@ -1,0 +1,105 @@
+/*
+  Activate tokens. Two printed themes share one structure (see DESIGN.md):
+  · afis   — a concert poster: stock paper, ink, hard shadows, stickers.
+  · sinyal — a terminal printout on Klein-blue paper: mono type, dashed rules, steps().
+  Components read only these variables. The server sets data-theme on <html>
+  from the activate-theme cookie, so the first paint is already the right theme.
+*/
+
+:root,
+:root[data-theme="afis"] {
+  color-scheme: light;
+
+  --bg: #f1eee4;
+  --bg-2: #e6e1d2;
+  --ink: #111111;
+  --ink-2: #4b473e;
+  --ink-3: #7a7466;
+  --on-ink: #f1eee4;
+
+  --active: #c8d42c;
+  --active-ink: #111111;
+  --away: #8a8577;
+  --now: #ff5fa2;
+  --danger: #e0342a;
+
+  --tone-0: #ff5fa2;
+  --tone-1: #8fc8ff;
+  --tone-2: #ff8a3d;
+  --tone-3: #c4b5fd;
+  --tone-4: #ffd23f;
+  --tone-5: #7fdcc0;
+
+  --heat-0: #e3ded0;
+  --heat-1: #e7ec9a;
+  --heat-2: #c8d42c;
+  --heat-3: #7c8517;
+  --heat-4: #111111;
+
+  --font-display: var(--font-syne), "Arial Black", "Helvetica Neue", sans-serif;
+  --font-text: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: var(--font-manrope), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --rule-w: 2.5px;
+  --rule: var(--rule-w) solid var(--ink);
+  --shadow: 5px 5px 0 var(--ink);
+  --shadow-sm: 3px 3px 0 var(--ink);
+  --radius: 0px;
+
+  --ease: cubic-bezier(.2, 1.5, .35, 1);
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --t-fast: 140ms;
+  --t: 240ms;
+  --t-slow: 420ms;
+
+  --page-max: 1240px;
+  --gutter: clamp(16px, 3.2vw, 40px);
+}
+
+:root[data-theme="sinyal"] {
+  color-scheme: dark;
+
+  --bg: #1d2df0;
+  --bg-2: #1724d0;
+  --ink: #eef0ff;
+  --ink-2: #d6dbff;
+  --ink-3: #b6bdff;
+  --on-ink: #1d2df0;
+
+  --active: #ffe14d;
+  --active-ink: #1d2df0;
+  --away: #9aa3ff;
+  --now: #ffe14d;
+  --danger: #ff8f8f;
+
+  --tone-0: #eef0ff;
+  --tone-1: #eef0ff;
+  --tone-2: #eef0ff;
+  --tone-3: #eef0ff;
+  --tone-4: #eef0ff;
+  --tone-5: #eef0ff;
+
+  --heat-0: rgba(238, 240, 255, .18);
+  --heat-1: rgba(238, 240, 255, .45);
+  --heat-2: rgba(238, 240, 255, .7);
+  --heat-3: #eef0ff;
+  --heat-4: #ffe14d;
+
+  --font-display: var(--font-spacemono), var(--font-jetbrains), ui-monospace, monospace;
+  --font-text: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-num: var(--font-jetbrains), ui-monospace, monospace;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --rule-w: 1px;
+  --rule: 1px dashed rgba(238, 240, 255, .5);
+  --shadow: none;
+  --shadow-sm: none;
+  --radius: 0px;
+
+  --ease: steps(6, end);
+  --ease-out: steps(8, end);
+  --t-fast: 120ms;
+  --t: 220ms;
+  --t-slow: 480ms;
+}
