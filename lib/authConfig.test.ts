@@ -27,7 +27,17 @@ describe('authorized callback', () => {
   });
 
   it('no longer treats a dot in the path as a public asset', () => {
-    expect(call('/users/U123.json')).toBe(false);
+    expect((call('/users/U123.json') as Response).status).toBe(302);
+  });
+
+  it('redirects pages to sign-in on the public base URL', () => {
+    process.env.APP_BASE_URL = 'https://activate.example';
+    const res = call('/users/U1?x=1') as Response;
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe(
+      'https://activate.example/api/auth/signin?callbackUrl=' + encodeURIComponent('https://activate.example/users/U1?x=1')
+    );
+    delete process.env.APP_BASE_URL;
   });
 
   it('returns 401 JSON for API calls without a session', async () => {
@@ -37,7 +47,7 @@ describe('authorized callback', () => {
   });
 
   it('rejects a signed-in user who is not on the allowlist', () => {
-    expect(call('/', 'intruder@example.com')).toBe(false);
+    expect((call('/', 'intruder@example.com') as Response).status).toBe(302);
   });
 
   it('allows an admin', () => {

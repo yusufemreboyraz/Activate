@@ -65,7 +65,12 @@ export const authConfig = {
       if (path.startsWith('/api/')) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
-      return false; // redirect to the sign-in page
+
+      // Build the sign-in redirect from the public base URL: behind Cloud Run
+      // the standalone server sees its own bind address (0.0.0.0:8080).
+      const base = (process.env.APP_BASE_URL ?? nextUrl.origin).replace(/\/+$/, '');
+      const callbackUrl = `${base}${path}${nextUrl.search}`;
+      return Response.redirect(`${base}/api/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`, 302);
     },
   },
 } satisfies NextAuthConfig;
