@@ -12,6 +12,7 @@ interface WorkspaceState {
   workspaces: SlackWorkspace[];
   selectedWorkspaceId: string | null;
   isLoadingWorkspaces: boolean;
+  hasFetchedWorkspaces: boolean;
   fetchWorkspaces: () => Promise<void>;
   setSelectedWorkspaceId: (id: string | null) => void;
 }
@@ -20,6 +21,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
   selectedWorkspaceId: null, // Always initialize as null to prevent hydration errors
   isLoadingWorkspaces: false,
+  hasFetchedWorkspaces: false,
   setSelectedWorkspaceId: (id) => {
     set({ selectedWorkspaceId: id });
     if (typeof window !== 'undefined') {
@@ -38,7 +40,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (!response.ok) throw new Error(`Failed to fetch workspaces: ${response.status}`);
       const fetchedWorkspaces: SlackWorkspace[] = await response.json();
 
-      set({ workspaces: fetchedWorkspaces, isLoadingWorkspaces: false });
+      set({ workspaces: fetchedWorkspaces, isLoadingWorkspaces: false, hasFetchedWorkspaces: true });
+
+      // Drop a remembered workspace that is no longer connected.
+      const current = get().selectedWorkspaceId;
+      if (current && !fetchedWorkspaces.some((w) => w.workspace_id === current)) {
+        get().setSelectedWorkspaceId(null);
+      }
 
       if (!get().selectedWorkspaceId && fetchedWorkspaces.length > 0) {
         const defaultId = fetchedWorkspaces[0].workspace_id;
@@ -46,7 +54,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }
     } catch (error) {
       console.error('Error fetching workspaces: ', error);
-      set({ isLoadingWorkspaces: false, workspaces: [] });
+      set({ isLoadingWorkspaces: false, workspaces: [], hasFetchedWorkspaces: true });
     }
   },
 }));

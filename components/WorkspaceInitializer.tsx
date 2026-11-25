@@ -5,7 +5,8 @@ import { useWorkspaceStore } from '@/stores/workspaceStore'; // Store dosyanÄ±zÄ
 
 export function WorkspaceInitializer() {
   const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
-  const workspacesLoaded = useWorkspaceStore((state) => state.workspaces.length > 0);
+  // Fetch once per page load; an empty list is a valid answer, not a reason to refetch.
+  const workspacesLoaded = useWorkspaceStore((state) => state.hasFetchedWorkspaces);
   const isLoading = useWorkspaceStore((state) => state.isLoadingWorkspaces);
   const setSelectedWorkspaceId = useWorkspaceStore((state) => state.setSelectedWorkspaceId);
 
@@ -13,7 +14,6 @@ export function WorkspaceInitializer() {
   useEffect(() => {
     const savedWorkspaceId = localStorage.getItem('selected-workspace-id');
     if (savedWorkspaceId) {
-      console.log(`WorkspaceInitializer: Hydrating workspace ID from localStorage: ${savedWorkspaceId}`);
       setSelectedWorkspaceId(savedWorkspaceId);
     }
     // This effect should run only once.
@@ -23,7 +23,6 @@ export function WorkspaceInitializer() {
   // This effect handles fetching the list of workspaces if they aren't already loaded.
   useEffect(() => {
     if (!workspacesLoaded && !isLoading) {
-      console.log('WorkspaceInitializer: Fetching workspaces...');
       fetchWorkspaces();
     }
   }, [fetchWorkspaces, workspacesLoaded, isLoading]);
