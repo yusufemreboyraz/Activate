@@ -51,9 +51,7 @@ export function LiveStatus({ syncedAt }: { syncedAt: string | null }) {
             ? 'Canlı'
             : stale
               ? `Son veri ${agoTr(ago)}`
-              : pending
-                ? 'Güncelleniyor'
-                : `Canlı · ${agoTr(ago)} güncellendi`}
+              : `Canlı · ${agoTr(ago)} güncellendi`}
       </span>
     </span>
   );

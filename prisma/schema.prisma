@@ -49,6 +49,9 @@ model UserStatus {
   realName         String?
   displayName      String?
   imageOriginal    String?
+  // True when the uploaded Slack image is a flat colour square (no photo to
+  // print); the UI shows initials instead. Checked when the URL changes.
+  avatarFlat       Boolean   @default(false)
   // Slack profile email, lowercased. Dashboard access is granted by matching
   // the signed-in Slack email against these (see lib/access.ts).
   email            String?
@@ -86,3 +89,19 @@ model CronLock {
 
   @@map("cron_locks")
 }
+
+// One-time sign-in links handed out by the /activate slash command, so people
+// on a phone can open the dashboard without signing in to Slack in a browser.
+// Only a hash of the token is stored.
+model LoginLink {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique @map("token_hash")
+  email     String
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("login_links")
+}
+

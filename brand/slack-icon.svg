@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" fill="#111111"/>
-  <circle cx="450" cy="560" r="300" fill="#c8d42c"/>
-  <g transform="rotate(10 735 300)">
-    <rect x="510" y="210" width="450" height="180" fill="#ff5fa2" stroke="#111111" stroke-width="26"/>
+  <!-- the 40-unit mark at 14.4x: 576 px, centred -->
+  <g transform="translate(224 224) scale(14.4) translate(-11 -14)">
+    <circle cx="31" cy="34" r="15" fill="none" stroke="#f1eee4" stroke-width="10"/>
+    <rect x="41" y="14" width="10" height="40" fill="#f1eee4"/>
+    <circle cx="31" cy="34" r="5" fill="#c8d42c"/>
   </g>
 </svg>

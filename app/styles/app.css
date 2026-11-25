@@ -41,15 +41,26 @@ body::before {
 
 /* ───────────── Logo ───────────── */
 
-.logo { display: inline-flex; align-items: center; line-height: 1; flex: none; }
-.logo-afis { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: -.045em; }
-.logo-afis .logo-sticker {
-  display: inline-block; margin-left: 1px; padding: 1px 4px 0;
+.logo { display: inline-flex; align-items: center; gap: 9px; line-height: 1; flex: none; color: var(--ink); }
+.logo-mark { width: 26px; height: 26px; flex: none; }
+.logo-dot { fill: var(--active); transform-box: fill-box; transform-origin: center; }
+.logo-word { font-family: var(--font-display); }
+:root:not([data-theme="sinyal"]) .logo-word { font-weight: 800; font-size: 23px; letter-spacing: -.045em; }
+:root[data-theme="sinyal"] .logo-word { font-weight: 700; font-size: 17px; letter-spacing: -.02em; }
+:root[data-theme="sinyal"] .logo-mark { width: 22px; height: 22px; }
+/* Afiş: the dot and the VATE sticker share the poster's pink. */
+:root:not([data-theme="sinyal"]) .logo-dot { fill: var(--now); }
+:root:not([data-theme="sinyal"]) .logo-word { display: inline-flex; align-items: center; }
+.logo-sticker {
+  display: inline-block; margin-left: 1px; padding: 2px 4px 0;
   background: var(--now); color: var(--ink); transform: rotate(-5deg) translateY(-1px);
   transition: transform var(--t) var(--ease);
 }
 .logo:hover .logo-sticker { transform: rotate(4deg) translateY(-2px) scale(1.06); }
-.logo-sinyal { font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: -.02em; }
+/* Afiş stamps the dot into the counter once; hovering presses it again. */
+:root:not([data-theme="sinyal"]) .logo-dot { animation: dot-stamp 420ms var(--ease) 120ms both; }
+:root:not([data-theme="sinyal"]) .logo:hover .logo-dot { animation: dot-stamp 360ms var(--ease); }
+@keyframes dot-stamp { from { transform: scale(0); } }
 .cursor { display: inline-block; width: .55em; height: 1.05em; margin-left: 2px; background: currentColor; vertical-align: -.15em; animation: blink 1.06s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 
@@ -537,7 +548,8 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
 /* ───────────── Small screens ───────────── */
 @media (max-width: 720px) {
   .topbar { position: static; }
-  .logo-afis { font-size: 20px; }
+  :root:not([data-theme="sinyal"]) .logo-word { font-size: 20px; }
+  .logo-mark { width: 23px; height: 23px; }
   .theme button { padding: 6px 7px; }
   .topbar-in { gap: 10px 12px; }
   .wsnav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
@@ -559,3 +571,10 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
 
 /* A zero duration prints as a dash: Syne's 0 reads as the letter O. */
 .zero { font-family: var(--font-text); font-weight: 800; letter-spacing: 0; }
+
+/* The viewer's own card. */
+.you { display: inline-block; margin-left: 6px; padding: 0 5px; background: var(--ink); color: var(--bg); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
+.person.is-you .person-link { outline: 3px dashed var(--ink); outline-offset: 5px; }
+:root[data-theme="sinyal"] .you { background: none; color: var(--active); padding: 0; font-weight: 500; letter-spacing: 0; text-transform: lowercase; }
+:root[data-theme="sinyal"] .you::before { content: "← "; }
+:root[data-theme="sinyal"] .person.is-you .person-link { outline: 0; }
