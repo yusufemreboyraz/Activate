@@ -4,8 +4,20 @@
     {
       "name": "activate-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": [
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "activate-dev-3001",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dev",
+        "-p",
+        "3001"
+      ],
+      "port": 3001
     }
   ]
 }
