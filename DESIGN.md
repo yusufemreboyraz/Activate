@@ -53,7 +53,7 @@ Pick colours from the tokens in `app/styles/tokens.css`, never from literals in 
 | Person | tile with hard shadow and a `→`; coloured while active, plain paper while away; avatar printed in multiply | one row: `●`, name, ASCII day bar, time |
 | Presence | rotated `● AKTİF` sticker (wobbles), grey `UZAKTA` sticker | `●` yellow / `○` dim + word |
 | Day strip (24h) | framed bar, ink blocks for active stretches, pink "now" line | one cell per hour (per 15 min on a person page): `·` none, `▒` part, `█` mostly active; hour ruler on the person page |
-| Ticker | black marquee band, `★` separators | `hh:mm name aktif oldu` log, newest last |
+| Log | ink panel, one row per event: `hh:mm` · NAME · lime `AKTİF OLDU` / grey `UZAKLAŞTI` sticker, newest last | `hh:mm name aktif oldu` log, newest last |
 | Heatmap | square cells, five steps from stock to lime to ink | one digit per day: whole hours active (`·` none, `+` ten or more), brightest at 6h+ |
 | Button | ink border, hard shadow, presses into its shadow | `[ label ]`, hover inverts |
 | Loading | striped skeleton blocks | braille spinner `⠋⠙⠹⠸` + `yükleniyor` |

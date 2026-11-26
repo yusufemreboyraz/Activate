@@ -234,29 +234,46 @@ body::before {
 :root[data-theme="sinyal"] .fresh { animation: invert 900ms steps(1) both; }
 @keyframes invert { 0%, 33%, 66% { background: var(--active); color: var(--active-ink); } 16%, 50%, 100% { background: transparent; color: inherit; } }
 
-/* ───────────── Ticker (Afiş) / Log (Sinyal) ───────────── */
+/* ───────────── Today's log (both themes, newest last) ───────────── */
 
-.ticker {
-  position: relative; overflow: hidden; background: var(--ink); color: var(--on-ink);
-  margin-inline: calc(-1 * var(--gutter)); border-block: var(--rule);
+.log { display: grid; }
+.log li { display: grid; grid-template-columns: 6ch minmax(0, 1fr); gap: 1.5ch; align-items: baseline; }
+
+/* Afiş: an ink panel, one row per event, a sticker saying what happened. */
+:root:not([data-theme="sinyal"]) .log {
+  background: var(--ink); color: var(--on-ink); border: var(--rule); box-shadow: var(--shadow-sm);
+  padding: 4px 16px;
+}
+:root:not([data-theme="sinyal"]) .log li {
+  padding: 9px 0; border-top: 1px solid color-mix(in srgb, var(--on-ink) 18%, transparent);
+  animation: row-in 420ms var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms);
+}
+:root:not([data-theme="sinyal"]) .log li:first-child { border-top: 0; }
+:root:not([data-theme="sinyal"]) .log time { font-weight: 700; font-size: 14px; opacity: .65; font-feature-settings: "calt" 0, "liga" 0; }
+:root:not([data-theme="sinyal"]) .log-line,
+:root:not([data-theme="sinyal"]) .log-empty span {
   font-family: var(--font-display); font-weight: 800; font-size: 15px; letter-spacing: .02em; text-transform: uppercase;
 }
-.ticker-track { display: flex; width: max-content; animation: marquee var(--marquee, 40s) linear infinite; }
-.ticker:hover .ticker-track { animation-play-state: paused; }
-.ticker-track > span { display: inline-flex; white-space: nowrap; }
-.ticker-item { display: inline-flex; align-items: baseline; gap: .55em; padding: 9px 1.1em 9px 0; white-space: nowrap; }
-.ticker .star { color: var(--active); }
-.ticker .when { font-family: var(--font-text); font-weight: 700; opacity: .65; }
-.ticker .ev-active .who { color: var(--active); }
-@keyframes marquee { to { transform: translateX(-50%); } }
-.ticker-empty { padding: 9px var(--gutter); white-space: nowrap; }
+:root:not([data-theme="sinyal"]) .log b { font-weight: inherit; margin-right: .35em; }
+:root:not([data-theme="sinyal"]) .log-what {
+  display: inline-block; padding: 1px 6px 0; font-size: 12.5px; letter-spacing: .04em;
+  background: var(--active); color: var(--active-ink); transform: rotate(-2deg);
+}
+:root:not([data-theme="sinyal"]) .ev-away .log-what { background: var(--away); color: var(--bg); transform: rotate(2deg); }
+@keyframes row-in { from { opacity: 0; transform: translateY(-6px); } }
+@media (max-width: 520px) {
+  :root:not([data-theme="sinyal"]) .log { padding-inline: 12px; }
+  :root:not([data-theme="sinyal"]) .log li { grid-template-columns: 5ch minmax(0, 1fr); gap: 1.2ch; }
+  :root:not([data-theme="sinyal"]) .log b { display: block; margin: 0 0 5px; }
+}
 
-.log { display: grid; gap: 2px; font-size: 13.5px; border-top: var(--rule); border-bottom: var(--rule); padding-block: 10px; }
-.log li { display: grid; grid-template-columns: 6ch 1fr; gap: 1.5ch; animation: typein 600ms steps(18) both; animation-delay: calc(var(--i, 0) * 70ms); }
-.log time { color: var(--ink-3); }
-.log b { font-weight: 500; color: var(--active); }
-.log .ev-away b { color: var(--ink); }
-.log .prompt { color: var(--ink-3); }
+/* Sinyal: the tail of a terminal log. */
+:root[data-theme="sinyal"] .log { gap: 2px; font-size: 13.5px; border-top: var(--rule); border-bottom: var(--rule); padding-block: 10px; }
+:root[data-theme="sinyal"] .log li { animation: typein 600ms steps(18) both; animation-delay: calc(var(--i, 0) * 70ms); }
+:root[data-theme="sinyal"] .log time { color: var(--ink-3); }
+:root[data-theme="sinyal"] .log b { font-weight: 500; color: var(--active); }
+:root[data-theme="sinyal"] .log .ev-away b { color: var(--ink); }
+:root[data-theme="sinyal"] .log .prompt { color: var(--ink-3); }
 @keyframes typein { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 
 /* ───────────── Section heads ───────────── */
