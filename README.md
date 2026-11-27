@@ -4,24 +4,6 @@
 
 It is built to be looked at. The interface ships in two hand-built themes that share the same markup: **Afiş**, a concert poster in stock paper, ink, hard shadows and tilted stickers, and **Sinyal**, a cobalt terminal with a blinking cursor. Every screen is in Turkish, typeset for Turkish (`İ` stays `İ`).
 
-![Today in Afiş: 5 of 7 active, today's log, and the team as poster cards](docs/screenshots/today-afis.png)
-
-<table>
-  <tr>
-    <td width="68%"><img src="docs/screenshots/person-afis.png" alt="A person's day: totals, 24-hour timeline, sessions, the week and the year as a heatmap"></td>
-    <td width="32%"><img src="docs/screenshots/today-afis-mobile.png" alt="Today on a phone, Afiş theme"></td>
-  </tr>
-</table>
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/today-sinyal.png" alt="The same day in the Sinyal theme: a terminal-style log and team list"></td>
-    <td width="50%"><img src="docs/screenshots/signin-afis.png" alt="Sign-in page: KİM BURADA?"></td>
-  </tr>
-</table>
-
-<sub>Screenshots use the local demo seed (`pnpm db:seed`): made-up people, believable activity.</sub>
-
 ## What you get
 
 - **Today, live.** A big "5/7 AKTİF" headline, the team's total for the day, and a log of the latest arrivals and departures. Active people sort first; each card shows today's total, how long they've been on, and a 24-hour strip with a "now" marker.
