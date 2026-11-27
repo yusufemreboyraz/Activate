@@ -36,6 +36,7 @@ Pick colours from the tokens in `app/styles/tokens.css`, never from literals in 
 ## Rules that hold in both themes
 
 - **Words are Turkish**, short and plain. "Aktif" and "uzakta" are the two states (as in Slack's Turkish UI); a stretch of activity is an "aktif aralık", never an "oturum". Durations are written `4sa 12dk`, `45dk`, `<1dk` (never `4s`, which reads as seconds), a zero as `—`, and clock times `14:02`. Days and hours are in Europe/Istanbul. The main page is called "Bugün" everywhere ("Bugüne dön", "Bugüne git").
+- **English is the second language**, switched with TR/EN in the header (cookie `activate-lang`, Turkish by default). Same plainness: "active" and "away", a stretch is a "session", durations `4h 12m`, `45m`, `<1m`, the main page "Today". Every string and the date and duration formats for both languages live in `lib/i18n.ts`; components take a `locale` and never hard-code words.
 - **Proper names keep their case.** Workspace and person names are never upper- or lower-cased by CSS (`.keep-case`): Turkish case rules turn "AI" into "aı".
 - **Summary before detail.** Every page opens with the one number that matters, then the people or sessions behind it.
 - **State shows in form.** An active person has a sticker or a yellow mark *and* the word "aktif". Colour alone never carries state.

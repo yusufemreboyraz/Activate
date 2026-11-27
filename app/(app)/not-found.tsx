@@ -1,11 +1,13 @@
 import Link from 'next/link';
+import { getI18n } from '@/lib/locale';
 
-export default function NotFoundInApp() {
+export default async function NotFoundInApp() {
+  const { t } = await getI18n();
   return (
     <section className="empty">
-      <h1 className="empty-big" style={{ ['--chars' as string]: 11 }}>Sayfa bulunamadı.</h1>
-      <p>Bu bağlantıdaki kişi ya da sayfa yok. Bağlantı eski olabilir ya da bu kişi senin ekiplerinden birinde değil.</p>
-      <div className="empty-actions"><Link className="btn" href="/">Bugüne dön</Link></div>
+      <h1 className="empty-big" style={{ ['--chars' as string]: 11 }}>{t.notFound.appTitle}</h1>
+      <p>{t.notFound.appBody}</p>
+      <div className="empty-actions"><Link className="btn" href="/">{t.day.backToday}</Link></div>
     </section>
   );
 }

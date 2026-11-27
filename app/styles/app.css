@@ -136,6 +136,9 @@ body::before {
 :root[data-theme="sinyal"] .theme button[aria-checked="true"] { background: var(--active); color: var(--active-ink); }
 :root[data-theme="sinyal"] .theme button:not([aria-checked="true"]):hover { background: var(--ink); color: var(--on-ink); }
 
+/* Language switch: same chip as the theme switch. */
+.lang button { min-width: 3.2ch; }
+
 /* ───────────── User menu ───────────── */
 
 .menu { position: relative; }
@@ -506,6 +509,7 @@ a.hc:hover { transform: scale(1.6) rotate(8deg); z-index: 2; box-shadow: 0 0 0 2
   position: relative; overflow: hidden;
 }
 .poster-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.poster-switches { display: flex; align-items: center; gap: 10px; }
 .poster-main { align-self: center; display: grid; gap: clamp(20px, 3vw, 32px); max-width: 1100px; container-type: inline-size; }
 .poster-title {
   font-family: var(--font-display); font-weight: 800; text-transform: uppercase;

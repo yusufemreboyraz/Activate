@@ -8,7 +8,9 @@ import { Fresh } from '@/components/live/Fresh';
 import { LiveStatus } from '@/components/live/LiveStatus';
 import { DayNav } from '@/components/person/DayNav';
 import { getWorkspaceDay, type PersonToday } from '@/lib/dashboard';
-import { clockTr, dayMonthTr, durationShown, durationSinceTr, durationTr, toneOf } from '@/lib/format';
+import { toneOf } from '@/lib/format';
+import type { Formatter, Messages } from '@/lib/i18n';
+import { getI18n } from '@/lib/locale';
 import { getViewer, pickWorkspace } from '@/lib/viewer';
 import { dateStringInZone, isDateString } from '@/lib/time';
 import { signOutAction } from '@/app/actions';
@@ -20,40 +22,41 @@ type Props = { searchParams: Promise<{ w?: string; d?: string }> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const viewer = await getViewer();
   const { w } = await searchParams;
+  const { t } = await getI18n();
   const ws = viewer?.workspaces.find((x) => x.id === pickWorkspace(viewer, w));
-  return { title: ws ? `Ekip · ${ws.name}` : 'Ekip' };
+  return { title: ws ? `${t.meta.team} · ${ws.name}` : t.meta.team };
 }
 
-function since(p: PersonToday, now: Date, isToday: boolean): string {
-  if (!isToday) return p.sessions.length ? `${p.sessions.length} aktif aralık` : 'bu gün aktif değildi';
+function since(p: PersonToday, now: Date, isToday: boolean, t: Messages, f: Formatter): string {
+  if (!isToday) return p.sessions.length ? t.state.sessions(p.sessions.length) : t.state.notActiveThatDay;
   if (p.presence === 'active') {
-    return p.activeSince ? `${durationSinceTr(now.getTime() - p.activeSince.getTime())} aktif` : 'şu an aktif';
+    return p.activeSince ? t.state.activeFor(now.getTime() - p.activeSince.getTime()) : t.state.activeNow;
   }
   if (p.lastSeen) {
     const day = dateStringInZone(p.lastSeen);
-    return `son aktif ${day === dateStringInZone(now) ? '' : `${dayMonthTr(day)} `}${clockTr(p.lastSeen)}`;
+    return t.state.lastActive(`${day === dateStringInZone(now) ? '' : `${f.dayMonth(day)} `}${f.clock(p.lastSeen)}`);
   }
-  return 'henüz görülmedi';
+  return t.state.notSeen;
 }
 
 export default async function TodayPage({ searchParams }: Props) {
   const viewer = (await getViewer())!;
   const params = await searchParams;
+  const { locale, t, f } = await getI18n();
+  const tt = t.team;
   const wsId = pickWorkspace(viewer, params.w);
 
   if (!wsId) {
     return (
       <section className="empty">
-        <h1 className="empty-big" style={{ ['--chars' as string]: 8 }}>Henüz bir ekibin yok.</h1>
+        <h1 className="empty-big" style={{ ['--chars' as string]: 8 }}>{tt.noTeamTitle}</h1>
         <p>
-          {viewer.email} adresi, Activate’e bağlı hiçbir Slack ekibinde üye olarak görünmüyor.
-          {viewer.isAdmin
-            ? ' Bir Slack workspace’i bağlayarak başla.'
-            : ' Ekibinin Slack’te kullandığın hesabıyla girdiğinden emin ol; olmadıysa Activate linkini paylaşan kişiye sor.'}
+          {tt.noTeamBody(viewer.email)}
+          {viewer.isAdmin ? tt.noTeamAdmin : tt.noTeamMember}
         </p>
         <div className="empty-actions">
-          {viewer.isAdmin && <a className="btn btn-pop" href="/api/slack/install">Slack workspace bağla</a>}
-          <form action={signOutAction}><button type="submit" className="btn btn-ghost">Başka hesapla giriş yap</button></form>
+          {viewer.isAdmin && <a className="btn btn-pop" href="/api/slack/install">{t.menu.connect}</a>}
+          <form action={signOutAction}><button type="submit" className="btn btn-ghost">{tt.otherAccount}</button></form>
         </div>
       </section>
     );
@@ -64,69 +67,71 @@ export default async function TodayPage({ searchParams }: Props) {
   const todayDate = dateStringInZone(now);
   const date = params.d && isDateString(params.d) && params.d < todayDate ? params.d : todayDate;
   const today = await getWorkspaceDay(wsId, date, now, viewer.email);
-  const total = durationTr(today.totalMs);
+  const total = f.duration(today.totalMs);
+  const liveCap = tt.liveCap(today.people.length, today.activeCount);
   const live = today.isToday;
   const base = `/?w=${wsId}`;
   const hrefFor = (d: string) => (d === todayDate ? base : `${base}&d=${d}`);
   const withPeople = today.people.filter((p) => p.todayMs > 0).length;
+  const pastCap = tt.pastCap(f.dayMonth(date), today.people.length, withPeople);
 
   return (
     <>
-      <DayNav date={date} today={todayDate} hrefFor={hrefFor} base={base} label="Ekibin günü" />
+      <DayNav date={date} today={todayDate} hrefFor={hrefFor} base={base} label={tt.dayNav} locale={locale} />
 
       <section className="hero" aria-labelledby="hero-title">
         <p className="kicker">
           <span className="keep-case">{ws.name}</span>
           <span className="dot" aria-hidden="true" />
-          {live ? <LiveStatus syncedAt={today.syncedAt?.toISOString() ?? null} /> : <span>Günün özeti</span>}
+          {live ? <LiveStatus syncedAt={today.syncedAt?.toISOString() ?? null} locale={locale} /> : <span>{tt.summary}</span>}
         </p>
         {live ? (
           <>
             <h1 id="hero-title" className="hero-num num">
               <Fresh value={today.activeCount}>{today.activeCount}</Fresh>
-              <span className="of">/{today.people.length}</span> <span className="word">aktif</span>
-              <span className="sr-only"> kişi şu an Slack’te</span>
+              <span className="of">/{today.people.length}</span> <span className="word">{tt.word}</span>
+              <span className="sr-only">{tt.srNow}</span>
             </h1>
             <p className="hero-cap">
-              {today.people.length} kişiden {today.activeCount} kişi şu an Slack’te aktif. Ekip bugün toplam{' '}
-              <b className="num"><Fresh value={total}>{total}</Fresh></b> aktifti.
+              {liveCap[0]}
+              <b className="num"><Fresh value={total}>{total}</Fresh></b>{liveCap[1]}
             </p>
           </>
         ) : (
           <>
             <h1 id="hero-title" className="hero-num num">
-              <span className="sr-only">{dayMonthTr(date)} günü ekip toplamı </span>
+              <span className="sr-only">{tt.pastSr(f.dayMonth(date))}</span>
               {total}
             </h1>
             <p className="hero-cap">
-              {dayMonthTr(date)} günü {today.people.length} kişiden {withPeople} kişi Slack’te aktifti; ekip toplam{' '}
-              <b className="num">{total}</b>.
+              {pastCap[0]}
+              <b className="num">{total}</b>{pastCap[1]}
             </p>
           </>
         )}
       </section>
 
-      <Ticker events={today.events} live={live} />
+      <Ticker events={today.events} live={live} locale={locale} />
 
       <section className="block" aria-labelledby="team-title">
         <div className="block-head">
-          <h2 id="team-title">Ekip</h2>
+          <h2 id="team-title">{tt.title}</h2>
           <p>
-            {live ? 'Önce şu an aktif olanlar, sonra alfabetik' : 'Alfabetik'} ·{' '}
-            <span className="only-afis">şerit: günün 24 saati, siyah = aktif{live ? ', pembe çizgi = şimdi' : ''}</span>
-            <span className="only-sinyal">şerit: günün 24 saati, █ = aktif{live ? ', sarı = şimdi' : ''}</span>
+            {tt.order(live)} ·{' '}
+            <span className="only-afis">{tt.stripAfis(live)}</span>
+            <span className="only-sinyal">{tt.stripSinyal(live)}</span>
           </p>
         </div>
 
         {today.people.length === 0 ? (
           <div className="empty">
-            <p className="empty-big" style={{ ['--chars' as string]: 7 }}>İlk veri yolda.</p>
-            <p>Workspace bağlandı ama Slack’ten henüz okuma gelmedi. İlk okuma 2 dakika içinde gelir; sayfa kendini yeniler.</p>
+            <p className="empty-big" style={{ ['--chars' as string]: 7 }}>{tt.firstDataTitle}</p>
+            <p>{tt.firstDataBody}</p>
           </div>
         ) : (
           <ul className="people">
             {today.people.map((p, i) => {
-              const time = durationShown(p.todayMs);
+              const time = f.durationShown(p.todayMs);
               // Today the card shows presence now; another day, whether they were active then.
               const state = live ? p.presence : p.todayMs > 0 ? 'active' : 'away';
               return (
@@ -135,16 +140,16 @@ export default async function TodayPage({ searchParams }: Props) {
                     <Avatar name={p.name} src={p.image} />
                     <span className="person-name">
                       <span className="keep-case">{p.name}</span>
-                      {p.isYou && <span className="you">sen</span>}
-                      {p.isGuest && <span className="guest" title="Bu kişi Slack’te misafir hesapla bulunuyor">Slack misafiri</span>}
+                      {p.isYou && <span className="you">{tt.you}</span>}
+                      {p.isGuest && <span className="guest" title={tt.guestTitle}>{tt.guest}</span>}
                     </span>
-                    {live && <Presence value={p.presence} />}
+                    {live && <Presence value={p.presence} locale={locale} />}
                     <span className={`person-time num${p.todayMs ? '' : ' zero'}`}>
-                      <span className="sr-only">{live ? 'bugün ' : `${dayMonthTr(date)} günü `}</span>
+                      <span className="sr-only">{live ? tt.srToday : tt.srOn(f.dayMonth(date))}</span>
                       <Fresh value={time}>{time}</Fresh>
                     </span>
-                    <span className="person-since">{since(p, now, live)}</span>
-                    <DayStrip sessions={p.sessions} nowMin={today.nowMin} />
+                    <span className="person-since">{since(p, now, live, t, f)}</span>
+                    <DayStrip sessions={p.sessions} nowMin={today.nowMin} locale={locale} />
                     <span className="person-go" aria-hidden="true">→</span>
                   </Link>
                 </li>
@@ -154,10 +159,7 @@ export default async function TodayPage({ searchParams }: Props) {
         )}
       </section>
 
-      <p className="note">
-        Süreler, Slack’te yeşil “aktif” noktasıyla göründüğün zamandır: Slack açık ve kullanılıyorken aktif sayılırsın.
-        Toplantıda, telefonda ya da odaklanmış çalışırken burada görünmeyebilirsin. Bu bir çalışma süresi ölçümü değildir; liste kimseyi sıralamaz.
-      </p>
+      <p className="note">{tt.note}</p>
     </>
   );
 }
