@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { DEFAULT_LOCALE, messages, type Locale } from '@/lib/i18n';
 import { THEME_COOKIE, THEME_LABEL, THEMES, type Theme } from '@/lib/theme';
 
 type DocWithVT = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
 
 // Switches the theme in place: both themes' markup is already on the page, so
 // only data-theme changes. The wipe starts from the button that was pressed.
-export function ThemeSwitch({ initial }: { initial: Theme }) {
+export function ThemeSwitch({ initial, locale = DEFAULT_LOCALE }: { initial: Theme; locale?: Locale }) {
   const [theme, setTheme] = useState<Theme>(initial);
 
   function choose(next: Theme, el: HTMLElement) {
@@ -29,7 +30,7 @@ export function ThemeSwitch({ initial }: { initial: Theme }) {
   }
 
   return (
-    <div className="theme" role="radiogroup" aria-label="Görünüm" title="Görünüm: Afiş ya da Sinyal">
+    <div className="theme" role="radiogroup" aria-label={messages(locale).theme.label} title={messages(locale).theme.title}>
       {THEMES.map((t) => (
         <button
           key={t}

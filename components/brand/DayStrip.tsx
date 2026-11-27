@@ -1,5 +1,5 @@
 import type { DaySession } from '@/lib/dashboard';
-import { durationTr } from '@/lib/format';
+import { formatter, messages, type Locale } from '@/lib/i18n';
 
 const DAY = 1440;
 const CHARS = ['·', '▒', '█'];
@@ -34,10 +34,11 @@ function coverage(sessions: DaySession[], buckets: number): number[] {
   });
 }
 
-function describe(sessions: DaySession[]): string {
-  if (sessions.length === 0) return 'Bu gün Slack’te aktif değildi.';
-  const parts = sessions.map((s) => `${minuteLabel(s.startMin)}–${s.end ? minuteLabel(s.endMin) : 'şu an'}`);
-  return `${sessions.length} aktif aralık: ${parts.join(', ')}`;
+function describe(sessions: DaySession[], locale: Locale): string {
+  const t = messages(locale);
+  if (sessions.length === 0) return t.strip.none;
+  const parts = sessions.map((s) => `${minuteLabel(s.startMin)}–${s.end ? minuteLabel(s.endMin) : t.now}`);
+  return t.strip.list(sessions.length, parts.join(', '));
 }
 
 // A 24-hour strip of the day. Afiş prints framed ink blocks with a pink "now"
@@ -46,10 +47,12 @@ export function DayStrip({
   sessions,
   nowMin,
   size = 'mini',
+  locale,
 }: {
   sessions: DaySession[];
   nowMin?: number | null;
   size?: 'mini' | 'large';
+  locale: Locale;
 }) {
   const large = size === 'large';
   const h = large ? 64 : 22;
@@ -58,7 +61,7 @@ export function DayStrip({
   const nowBucket = nowMin != null ? Math.floor((nowMin / DAY) * buckets) : null;
 
   return (
-    <div className="strip" role="img" aria-label={describe(sessions)}>
+    <div className="strip" role="img" aria-label={describe(sessions, locale)}>
       <div className="only-afis">
         <svg className="strip-svg" viewBox={`0 0 ${DAY} ${h}`} preserveAspectRatio="none" aria-hidden="true">
           <rect className="frame" x="0" y="0" width={DAY} height={h} vectorEffect="non-scaling-stroke" />
@@ -101,6 +104,6 @@ export function DayStrip({
   );
 }
 
-export function sessionSpan(s: DaySession): { from: string; to: string; length: string } {
-  return { from: minuteLabel(s.startMin), to: s.end ? minuteLabel(s.endMin) : 'şu an', length: durationTr(s.durationMs) };
+export function sessionSpan(s: DaySession, locale: Locale): { from: string; to: string; length: string } {
+  return { from: minuteLabel(s.startMin), to: s.end ? minuteLabel(s.endMin) : messages(locale).now, length: formatter(locale).duration(s.durationMs) };
 }

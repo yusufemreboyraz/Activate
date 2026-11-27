@@ -2,15 +2,29 @@
 
 **Who's here?** Activate is a live presence board for Slack teams. It reads every member's Slack presence every two minutes and turns it into a dashboard people actually want to open: who is active right now, today's comings and goings, a 24-hour timeline per person, the week in bars and the whole year as a heatmap. It runs for several workspaces at once, signs people in with their Slack account, and on a phone `/activate` in Slack hands you a one-tap sign-in link.
 
-It is built to be looked at. The interface ships in two hand-built themes that share the same markup: **Afiş**, a concert poster in stock paper, ink, hard shadows and tilted stickers, and **Sinyal**, a cobalt terminal with a blinking cursor. Every screen is in Turkish, typeset for Turkish (`İ` stays `İ`).
+It is built to be looked at: a concert poster in stock paper, ink, hard shadows and tilted stickers, where the numbers are set big enough to read from across the room. Every screen speaks **English and Turkish**, switched with one tap, with dates, durations and capitals done properly in both (`5h 55m` / `5sa 55dk`, and `İ` stays `İ`).
+
+![Today: 5 of 7 active, today's log, and the team as poster cards](docs/screenshots/today-afis.png)
+
+<table>
+  <tr>
+    <td width="68%"><img src="docs/screenshots/person-afis.png" alt="A person's day: totals, 24-hour timeline, sessions, the week, and the year as a heatmap"></td>
+    <td width="32%"><img src="docs/screenshots/today-afis-mobile.png" alt="Today on a phone"></td>
+  </tr>
+</table>
+
+![Sign-in: Who's here?](docs/screenshots/signin-afis.png)
+
+<sub>Screenshots use the local demo seed (`pnpm db:seed`): made-up workspaces and people, believable activity.</sub>
 
 ## What you get
 
-- **Today, live.** A big "5/7 AKTİF" headline, the team's total for the day, and a log of the latest arrivals and departures. Active people sort first; each card shows today's total, how long they've been on, and a 24-hour strip with a "now" marker.
+- **Today, live.** A big "5/7 ACTIVE" headline, the team's total for the day, and a log of the latest arrivals and departures. Active people sort first; each card shows today's total, how long they've been on, and a 24-hour strip with a "now" marker.
 - **Any day in the past.** Step back day by day or pick a date; the whole board, every card and every person page follows.
 - **A page per person.** Total, number of sessions, longest stretch, first and last activity, a full-day timeline, the list of sessions, the week as bars and the year as a clickable heatmap.
+- **English and Turkish.** One tap in the header switches the whole interface, including weekdays, months and durations.
 - **Several workspaces.** Each connected Slack workspace gets its own tab with a head count. People see only the workspaces they are a current, non-guest member of.
-- **Sign in with Slack, or with one tap.** Desktop users sign in with Slack. On a phone, typing `/activate` in any Slack chat replies (only to you) with your time today and this week and an "Activate'e gir" button: a one-time link valid for 10 minutes.
+- **Sign in with Slack, or with one tap.** Desktop users sign in with Slack. On a phone, typing `/activate` in any Slack chat replies (only to you) with your time today and this week and a sign-in button: a one-time link valid for 10 minutes.
 - **Honest numbers.** Activate measures Slack presence, not work: someone is "active" while a Slack client is open and in use. The interface says so on every page, and nothing ranks people against each other. Tell your team their presence is recorded before you turn it on.
 
 ## How it works
@@ -21,7 +35,7 @@ It is built to be looked at. The interface ships in two hand-built themes that s
 - **Days are local.** Day boundaries and times use `APP_TIMEZONE` (default `Europe/Istanbul`), see `lib/time.ts`.
 - **Rendering.** Pages are React Server Components that read the day straight from Postgres (`lib/dashboard.ts`, `lib/activityService.ts`) and refresh themselves while the day is live. Authenticated JSON routes (`/api/workspaces`, `/api/user-statuses`, `/api/activity`, `/api/activity/heatmap`) expose the same data.
 - **Slash command.** `POST /api/slack/webhook` verifies Slack's request signature and answers `/activate` with the caller's active time today and this week plus a sign-in link, visible only to them.
-- **Design.** Both themes are tokens over one set of components (`app/styles/tokens.css`, `app/styles/app.css`, `components/brand/`); the rules are in `DESIGN.md`. The theme is a cookie, switched from the header.
+- **Design and language.** The look is design tokens over one set of components (`app/styles/tokens.css`, `app/styles/app.css`, `components/brand/`), with the rules in `DESIGN.md`. Every string, plus date and duration formatting, lives in `lib/i18n.ts` in Turkish and English; the TR/EN switch stores the choice in a cookie, so the server renders the right language first.
 
 ## Security model
 
@@ -87,7 +101,6 @@ pnpm lint && pnpm typecheck
 
 # Look at every screen without Slack: demo data + a local session cookie
 DATABASE_URL=postgresql://postgres:postgres@localhost:54329/activate_dev SEED_VIEWER_EMAIL=dev@activate.test pnpm db:seed
-node scripts/dev-session.mjs dev@activate.test   # value for the authjs.session-token cookie
 pnpm dev
 ```
 

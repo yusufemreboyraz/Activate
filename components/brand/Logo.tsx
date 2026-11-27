@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DEFAULT_LOCALE, messages, type Locale } from '@/lib/i18n';
 
 // The mark: a geometric "a" (ring bowl + stem) with the presence dot in its
 // counter. Ring and stem take the ink colour, the dot the theme's "active"
@@ -16,9 +17,9 @@ export function LogoMark({ className = 'logo-mark' }: { className?: string }) {
 // Afiş: mark with a pink dot + ACTI and a pink tilted VATE sticker. Sinyal:
 // mark + activate with a blinking cursor. The Afiş word is written in capitals
 // in the source: CSS upper-casing under lang="tr" would print "ACTİVATE".
-export function Logo({ href = '/' }: { href?: string }) {
+export function Logo({ href = '/', locale = DEFAULT_LOCALE }: { href?: string; locale?: Locale }) {
   return (
-    <Link href={href} className="logo" aria-label="Activate, bugüne git">
+    <Link href={href} className="logo" aria-label={messages(locale).logoLabel}>
       <LogoMark />
       <span className="logo-word only-afis" aria-hidden="true">
         ACTI<span className="logo-sticker">VATE</span>

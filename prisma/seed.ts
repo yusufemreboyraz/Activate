@@ -40,26 +40,26 @@ const WORKSPACES: { id: string; name: string; people: Person[] }[] = [
     id: 'T_DEV_NORTHWIND',
     name: 'Northwind Labs',
     people: [
-      { id: 'U_DEV_AYSE', name: 'Ayşe Yılmaz', email: 'ayse@example.com', rhythm: 'early' },
-      { id: 'U_DEV_MERT', name: 'Mert Kaya', email: 'mert@example.com', rhythm: 'normal' },
-      { id: 'U_DEV_DENIZ', name: 'Deniz Er', email: 'deniz@example.com', rhythm: 'late' },
-      { id: 'U_DEV_CAN', name: 'Can Şen', email: 'can@example.com', rhythm: 'light' },
-      { id: 'U_DEV_IREM', name: 'İrem Güneş', email: 'irem@example.com', rhythm: 'normal' },
-      { id: 'U_DEV_ONUR', name: 'Onur Çelik', email: 'onur@example.com', rhythm: 'late', guest: true },
+      { id: 'U_DEV_AYSE', name: 'Maya Chen', email: 'maya@example.com', rhythm: 'early' },
+      { id: 'U_DEV_MERT', name: 'Leo Grant', email: 'leo@example.com', rhythm: 'normal' },
+      { id: 'U_DEV_DENIZ', name: 'Sam Rivera', email: 'sam@example.com', rhythm: 'late' },
+      { id: 'U_DEV_CAN', name: 'Noah Patel', email: 'noah@example.com', rhythm: 'light' },
+      { id: 'U_DEV_IREM', name: 'Iris Novak', email: 'iris@example.com', rhythm: 'normal' },
+      { id: 'U_DEV_ONUR', name: 'Omar Haddad', email: 'omar@example.com', rhythm: 'late', guest: true },
     ],
   },
   {
     id: 'T_DEV_ACME',
     name: 'Acme Studio',
     people: [
-      { id: 'U_DEV_ZEYNEP', name: 'Zeynep Arslan', email: 'zeynep@example.com', rhythm: 'normal' },
-      { id: 'U_DEV_BURAK', name: 'Burak Öztürk', email: 'burak@example.com', rhythm: 'late' },
-      { id: 'U_DEV_ELIF', name: 'Elif Kurt', email: 'elif@example.com', rhythm: 'early' },
-      { id: 'U_DEV_KEREM', name: 'Kerem Aydın', email: 'kerem@example.com', rhythm: 'light' },
-      { id: 'U_DEV_SELIN', name: 'Selin Doğan', email: 'selin@example.com', rhythm: 'normal' },
-      { id: 'U_DEV_EMRE', name: 'Emre Yıldız', email: 'emre@example.com', rhythm: 'late' },
-      { id: 'U_DEV_NAZ', name: 'Naz Koç', email: 'naz@example.com', rhythm: 'normal' },
-      { id: 'U_DEV_UMUT', name: 'Umut Şahin', email: 'umut@example.com', rhythm: 'light' },
+      { id: 'U_DEV_ZEYNEP', name: 'Zoe Walker', email: 'zoe@example.com', rhythm: 'normal' },
+      { id: 'U_DEV_BURAK', name: 'Ben Carter', email: 'ben@example.com', rhythm: 'late' },
+      { id: 'U_DEV_ELIF', name: 'Ella Brooks', email: 'ella@example.com', rhythm: 'early' },
+      { id: 'U_DEV_KEREM', name: 'Kai Turner', email: 'kai@example.com', rhythm: 'light' },
+      { id: 'U_DEV_SELIN', name: 'Sara Lind', email: 'sara@example.com', rhythm: 'normal' },
+      { id: 'U_DEV_EMRE', name: 'Eli Moss', email: 'eli@example.com', rhythm: 'late' },
+      { id: 'U_DEV_NAZ', name: 'Nina Ross', email: 'nina@example.com', rhythm: 'normal' },
+      { id: 'U_DEV_UMUT', name: 'Hugo Diaz', email: 'hugo@example.com', rhythm: 'light' },
     ],
   },
 ];
@@ -97,7 +97,7 @@ async function main() {
   for (const ws of WORKSPACES) {
     await prisma.workspace.create({ data: { id: ws.id, name: ws.name, botToken: 'enc:v1:dev:dev:dev', status: 'active' } });
     const people = viewer
-      ? [...ws.people, { id: `U_DEV_VIEWER_${ws.id.slice(6)}`, name: 'Yusuf Emre Boyraz', email: viewer, rhythm: 'normal' as const }]
+      ? [...ws.people, { id: `U_DEV_VIEWER_${ws.id.slice(6)}`, name: 'Alex Morgan', email: viewer, rhythm: 'normal' as const }]
       : ws.people;
 
     for (const p of people) {

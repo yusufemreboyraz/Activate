@@ -3,8 +3,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { signOutAction } from '@/app/actions';
 import { Avatar } from '@/components/brand/Avatar';
+import { messages, type Locale } from '@/lib/i18n';
 
-export function UserMenu({ name, email, image, isAdmin }: { name: string; email: string; image: string | null; isAdmin: boolean }) {
+export function UserMenu({ name, email, image, isAdmin, locale }: { name: string; email: string; image: string | null; isAdmin: boolean; locale: Locale }) {
+  const t = messages(locale);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
@@ -33,11 +35,11 @@ export function UserMenu({ name, email, image, isAdmin }: { name: string; email:
           <div className="menu-who"><b>{name}</b><span>{email}</span></div>
           {isAdmin && (
             <a className="menu-item" href="/api/slack/install">
-              <span aria-hidden="true">＋</span> Slack workspace bağla
+              <span aria-hidden="true">＋</span> {t.menu.connect}
             </a>
           )}
           <form action={signOutAction}>
-            <button type="submit" className="menu-item"><span aria-hidden="true">←</span> Çıkış yap</button>
+            <button type="submit" className="menu-item"><span aria-hidden="true">←</span> {t.menu.signOut}</button>
           </form>
         </div>
       )}

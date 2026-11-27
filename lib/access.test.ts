@@ -46,7 +46,7 @@ afterAll(async () => {
 
 describe('accessibleWorkspaceIds', () => {
   it('returns every active workspace the email is a member of', async () => {
-    expect((await accessibleWorkspaceIds('me@example.com')).sort()).toEqual(['T_NORTHWIND', 'T_ACME']);
+    expect((await accessibleWorkspaceIds('me@example.com')).sort()).toEqual(['T_ACME', 'T_NORTHWIND']);
   });
 
   it('matches emails case-insensitively', async () => {

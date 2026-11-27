@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { durationShown, durationTr, weekdayShortTr } from '@/lib/format';
+import { formatter, messages, type Locale } from '@/lib/i18n';
 
 const EIGHT_HOURS = 8 * 3_600_000;
 const WIDTH = 20;
@@ -9,12 +9,15 @@ export function WeekBars({
   selected,
   today,
   hrefFor,
+  locale,
 }: {
   week: { date: string; totalMs: number }[];
   selected: string;
   today: string;
   hrefFor: (date: string) => string;
+  locale: Locale;
 }) {
+  const f = formatter(locale);
   const max = Math.max(EIGHT_HOURS, ...week.map((d) => d.totalMs));
   return (
     <ol className="week">
@@ -26,17 +29,17 @@ export function WeekBars({
         const body = (
           <>
             <span className="col" aria-hidden="true"><span className="bar" style={{ ['--h' as string]: `${pct}%` }} /></span>
-            <span className="day">{weekdayShortTr(d.date)}</span>
+            <span className="day">{f.weekdayShort(d.date)}</span>
             <span className="week-txt" aria-hidden="true">{future ? ''.padEnd(WIDTH, ' ') : '█'.repeat(filled) + '░'.repeat(WIDTH - filled)}</span>
-            <span className="val num">{future ? '' : durationShown(d.totalMs)}</span>
+            <span className="val num">{future ? '' : f.durationShown(d.totalMs)}</span>
           </>
         );
         return (
           <li key={d.date}>
             {future ? (
-              <span className={cls} aria-label={`${weekdayShortTr(d.date)}: henüz gelmedi`}>{body}</span>
+              <span className={cls} aria-label={`${f.weekdayShort(d.date)}: ${messages(locale).week.notYet}`}>{body}</span>
             ) : (
-              <Link href={hrefFor(d.date)} className={cls} scroll={false} aria-label={`${weekdayShortTr(d.date)}: ${durationTr(d.totalMs)}`} aria-current={d.date === selected ? 'date' : undefined}>
+              <Link href={hrefFor(d.date)} className={cls} scroll={false} aria-label={`${f.weekdayShort(d.date)}: ${f.duration(d.totalMs)}`} aria-current={d.date === selected ? 'date' : undefined}>
                 {body}
               </Link>
             )}
